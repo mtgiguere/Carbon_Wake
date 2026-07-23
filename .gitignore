@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# Environments
+.venv/
+venv/
+.env
+.env.*
+
+# Test / coverage / tooling caches
+.pytest_cache/
+.hypothesis/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+.ruff_cache/
+.mypy_cache/
+
+# Data — never commit large or license-encumbered source data.
+# Small, redistributable integration-test samples are the deliberate exception
+# and live under tests/fixtures/real/ (committed on purpose; see ARCHITECTURE.md).
+data/
+*.gpkg
+*.geojson
+*.tif
+*.tiff
+*.nc
+!tests/fixtures/real/**
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

@@ -1,0 +1,49 @@
+name: CI
+
+# Bare-minimum quality gates, run on every push and PR. Each gate is its own
+# step so a red build names the failing gate immediately. The exact same
+# commands run locally via the dev extra — see CONTRIBUTING.md.
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install project + dev toolchain
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      # Gate 1 — lint
+      - name: Lint (ruff check)
+        run: ruff check .
+
+      # Gate 2 — format
+      - name: Format (ruff format --check)
+        run: ruff format --check .
+
+      # Gate 3 — tests + coverage floor (fail_under lives in pyproject.toml)
+      - name: Tests + coverage gate
+        run: pytest --cov=carbon_atlas --cov-report=term-missing
+
+      # Gate 4a — dependency vulnerability scan
+      - name: Vuln scan — dependencies (pip-audit)
+        run: pip-audit
+
+      # Gate 4b — static security scan of our own source
+      - name: Vuln scan — source (bandit)
+        run: bandit -r src -q

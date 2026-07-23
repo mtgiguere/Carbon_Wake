@@ -1,0 +1,82 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "carbon-atlas"
+version = "0.0.1"
+description = "Trawl Carbon Atlas — a public, honest visualization of the disputed bottom-trawling seafloor-carbon question."
+readme = "README.md"
+requires-python = "==3.12.*"
+license = { text = "TBD" }
+authors = [{ name = "Matt" }]
+
+# Runtime dependencies are intentionally EMPTY at this stage.
+# Guiding rule (see docs/ARCHITECTURE.md): a dependency is added only when the
+# module that needs it is being built. The reactivity science core is pure
+# stdlib + typing, so it pulls nothing. GeoPandas / Django / DRF / psycopg
+# arrive with the ETL, API, and persistence modules respectively.
+dependencies = []
+
+[project.optional-dependencies]
+# The developer + CI toolchain. Everything CI runs is installable here, so the
+# gates are reproducible locally with the exact same tools (see CONTRIBUTING.md).
+dev = [
+    "pytest>=8.0",
+    "hypothesis>=6.100",
+    "pytest-cov>=5.0",
+    "ruff>=0.5",
+    "pip-audit>=2.7",   # dependency vulnerability scan (OSV/PyPI advisories)
+    "bandit>=1.7",      # static security analysis of our own source
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+# ---------------------------------------------------------------------------
+# pytest
+# ---------------------------------------------------------------------------
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+# Strict markers: an unregistered @pytest.mark.foo is an error, not a silent
+# no-op. This is a direct guard against a test that looks scoped but isn't.
+addopts = "-ra --strict-markers --strict-config"
+markers = [
+    "integration: exercises a real external format/source (a download, an API response, a DB). Slow; not run by default. See docs/ARCHITECTURE.md 'Blind spot A'.",
+    "visual: renders the map and asserts on pixels. Requires software WebGL. See 'Blind spot B'.",
+]
+filterwarnings = ["error"]
+
+# ---------------------------------------------------------------------------
+# coverage — reported, never used as a proxy for 'verified' (see TDD_CONTRACT.md)
+# ---------------------------------------------------------------------------
+[tool.coverage.run]
+branch = true
+source = ["carbon_atlas"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false
+# A FLOOR, not a target. Meaning: "no line ships without a test executing it."
+# It is NOT a claim that behavior is verified — coverage counts executed lines,
+# not verified behaviors (see TDD_CONTRACT.md). Under strict TDD every line is
+# born from a failing test, so 100% is the honest floor. Genuinely unreachable
+# defensive code gets `# pragma: no cover` WITH a one-line reason, never a
+# hollow test written just to colour a line green.
+fail_under = 100
+
+# ---------------------------------------------------------------------------
+# ruff — lint + format, one tool
+# ---------------------------------------------------------------------------
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests may use assert-heavy, fixture-heavy patterns freely.
+"tests/**" = ["B", "SIM"]
