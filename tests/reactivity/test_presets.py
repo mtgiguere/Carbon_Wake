@@ -15,17 +15,26 @@ from hypothesis import strategies as st
 from carbon_atlas.reactivity.presets import (
     ReactivityPreset,
     co2_from_disturbed_carbon,
+    estimate_co2,
     estimate_range,
 )
 
 
-def _named(key: str, fraction: float) -> ReactivityPreset:
-    """A valid preset with a caller-chosen key and remineralization fraction."""
+def _named(
+    key: str,
+    fraction: float,
+    *,
+    atmospheric_fraction: float | None = None,
+    accounts_for_additionality: bool = False,
+) -> ReactivityPreset:
+    """A valid preset with caller-chosen methodological parameters."""
     return ReactivityPreset(
         key=key,
         label=key,
         remineralization_fraction=fraction,
         citation="test fixture — not a real published estimate",
+        atmospheric_fraction=atmospheric_fraction,
+        accounts_for_additionality=accounts_for_additionality,
     )
 
 
@@ -160,3 +169,64 @@ def test_every_preset_estimate_lies_within_the_range(mass, fractions):
     for p in presets:
         est = co2_from_disturbed_carbon(mass, p)
         assert r.low <= est <= r.high
+
+
+# --- The methodological model: aqueous vs atmospheric CO2 -------------------
+# Faithful to the literature (SCIENCE_BASIS.md): disturbed carbon remineralizes
+# first to AQUEOUS (water-column) CO2; only a fraction of that reaches the
+# ATMOSPHERE. Sala 2021 reports the aqueous figure and leaves the atmospheric
+# fraction explicitly "unknown"; Atwood 2024 supplies 55-60%. So a preset's
+# atmospheric_fraction is optional, and the atmospheric estimate is undefined
+# (None) — never silently zero or equal-to-aqueous — when the source omits it.
+
+
+def test_estimate_reports_both_aqueous_and_atmospheric_co2():
+    """With a stated atmospheric fraction, the estimate carries both figures:
+    atmospheric CO2 is the aqueous CO2 times the fraction that outgasses."""
+    preset = _named("both", 0.5, atmospheric_fraction=0.6)
+
+    est = estimate_co2(disturbed_carbon_mass=12.0, preset=preset)
+
+    assert math.isclose(est.aqueous, 22.0, rel_tol=1e-9)  # 12 * 0.5 * 44/12
+    assert math.isclose(est.atmospheric, 13.2, rel_tol=1e-9)  # 22.0 * 0.6
+
+
+def test_atmospheric_is_none_when_source_gives_no_atmospheric_fraction():
+    """The Sala 2021 case: aqueous is known, atmospheric is 'unknown'. The
+    estimate must say so (None), not launder the gap into a number."""
+    preset = _named("aqueous_only", 0.297, atmospheric_fraction=None)
+
+    est = estimate_co2(disturbed_carbon_mass=1000.0, preset=preset)
+
+    assert est.atmospheric is None
+    assert est.aqueous > 0.0
+
+
+@pytest.mark.parametrize("atmos", [0.0, 0.575, 1.0, None])
+def test_atmospheric_fraction_at_bounds_or_absent_is_accepted(atmos):
+    """0, 1, and None are all valid: none outgasses, all of it does, or the
+    source did not specify."""
+    assert _named("ok", 0.3, atmospheric_fraction=atmos).atmospheric_fraction == atmos
+
+
+@pytest.mark.parametrize("atmos", [-0.0001, -1.0, 1.0001, 2.0])
+def test_atmospheric_fraction_outside_bounds_is_rejected(atmos):
+    """Just past either boundary must raise — same discipline as the
+    remineralization fraction."""
+    with pytest.raises(ValueError):
+        _named("bad", 0.3, atmospheric_fraction=atmos)
+
+
+@given(
+    mass=_masses,
+    remin=_fractions,
+    atmos=_fractions,
+)
+def test_atmospheric_never_exceeds_aqueous(mass, remin, atmos):
+    """Property: the atmosphere cannot receive more CO2 than was released into the
+    water in the first place. atmospheric <= aqueous, always."""
+    preset = _named("p", remin, atmospheric_fraction=atmos)
+
+    est = estimate_co2(mass, preset)
+
+    assert est.atmospheric <= est.aqueous
