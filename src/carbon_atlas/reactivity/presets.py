@@ -38,6 +38,11 @@ class ReactivityPreset:
     - ``accounts_for_additionality`` — whether the estimate nets out the carbon
       that would have remineralized naturally anyway. This is the crux of the
       Sala-vs-Hiddink dispute, so it is recorded explicitly per preset.
+    - ``derivation`` — ``None`` when ``remineralization_fraction`` is quoted
+      directly from the cited source; otherwise a note recording how the figure
+      was derived (e.g. Hiddink 2023 published only an overestimate *factor*, so
+      any absolute fraction for it is an inference and must say so). This is
+      SCIENCE_BASIS.md's quoted-vs-derived rule enforced at the data level.
     """
 
     key: str
@@ -46,6 +51,7 @@ class ReactivityPreset:
     citation: str
     atmospheric_fraction: float | None = None
     accounts_for_additionality: bool = False
+    derivation: str | None = None
 
     def __post_init__(self) -> None:
         # A fraction is a proportion; outside [0, 1] it is not a fraction. We

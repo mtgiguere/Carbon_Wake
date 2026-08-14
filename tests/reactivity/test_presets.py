@@ -230,3 +230,30 @@ def test_atmospheric_never_exceeds_aqueous(mass, remin, atmos):
     est = estimate_co2(mass, preset)
 
     assert est.atmospheric <= est.aqueous
+
+
+# --- Provenance: quoted vs derived figures -----------------------------------
+# SCIENCE_BASIS.md's core honesty rule: never blur what a source PUBLISHED with
+# what we DERIVED from it. Hiddink 2023 published a 100-1000x overestimate factor
+# but no absolute figure — any absolute fraction we encode for it is an inference
+# and must say so on the preset itself, where the UI can surface it.
+
+
+def test_preset_fraction_is_quoted_by_default():
+    """A preset with no derivation note claims its fraction is quoted directly
+    from the cited source. That is the default and the stronger claim."""
+    assert _preset(0.297).derivation is None
+
+
+def test_preset_can_declare_its_fraction_as_derived():
+    """A derived figure carries a note saying HOW it was derived, so the number
+    can never silently masquerade as a published one."""
+    preset = ReactivityPreset(
+        key="derived",
+        label="Derived (test fixture)",
+        remineralization_fraction=0.00297,
+        citation="test fixture — not a real published estimate",
+        derivation="test fixture: quoted-value / 100",
+    )
+
+    assert preset.derivation == "test fixture: quoted-value / 100"
