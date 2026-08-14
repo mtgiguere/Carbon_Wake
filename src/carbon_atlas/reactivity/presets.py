@@ -23,16 +23,29 @@ CO2_PER_CARBON_MASS_RATIO = 44.0 / 12.0
 class ReactivityPreset:
     """One published set of assumptions for turning disturbed carbon into CO2.
 
-    ``remineralization_fraction`` is the disputed parameter: the fraction of the
-    disturbed organic carbon that mineralizes to CO2 and outgasses (as opposed to
-    reburying or never having been labile). Competing presets differ here by up to
-    two orders of magnitude.
+    The model mirrors the two-stage structure of the literature (see
+    docs/SCIENCE_BASIS.md): disturbed organic carbon remineralizes first to
+    *aqueous* CO2 in the water column, and only a fraction of that reaches the
+    *atmosphere*.
+
+    - ``remineralization_fraction`` — the disputed parameter: the fraction of
+      disturbed organic carbon that mineralizes to (aqueous) CO2. Competing
+      presets differ here by up to two orders of magnitude.
+    - ``atmospheric_fraction`` — the fraction of that aqueous CO2 that outgasses
+      to the atmosphere. ``None`` when the source did not quantify it (e.g. Sala
+      2021 called it "unknown"); the atmospheric estimate is then undefined rather
+      than assumed.
+    - ``accounts_for_additionality`` — whether the estimate nets out the carbon
+      that would have remineralized naturally anyway. This is the crux of the
+      Sala-vs-Hiddink dispute, so it is recorded explicitly per preset.
     """
 
     key: str
     label: str
     remineralization_fraction: float
     citation: str
+    atmospheric_fraction: float | None = None
+    accounts_for_additionality: bool = False
 
     def __post_init__(self) -> None:
         # A fraction is a proportion; outside [0, 1] it is not a fraction. We
@@ -42,6 +55,10 @@ class ReactivityPreset:
             raise ValueError(
                 f"remineralization_fraction must be in [0, 1]; "
                 f"got {self.remineralization_fraction!r}"
+            )
+        if self.atmospheric_fraction is not None and not (0.0 <= self.atmospheric_fraction <= 1.0):
+            raise ValueError(
+                f"atmospheric_fraction must be in [0, 1] or None; got {self.atmospheric_fraction!r}"
             )
 
 
@@ -56,6 +73,31 @@ def co2_from_disturbed_carbon(disturbed_carbon_mass: float, preset: ReactivityPr
             f"disturbed_carbon_mass must be non-negative; got {disturbed_carbon_mass!r}"
         )
     return disturbed_carbon_mass * preset.remineralization_fraction * CO2_PER_CARBON_MASS_RATIO
+
+
+@dataclass(frozen=True)
+class CO2Estimate:
+    """A preset's CO2 estimate for one disturbed-carbon quantity, on both bases.
+
+    ``atmospheric`` is ``None`` when the preset does not quantify the
+    aqueous-to-atmosphere fraction — the gap is reported, never filled in.
+    """
+
+    aqueous: float
+    atmospheric: float | None
+
+
+def estimate_co2(disturbed_carbon_mass: float, preset: ReactivityPreset) -> CO2Estimate:
+    """The aqueous and atmospheric CO2 for ``disturbed_carbon_mass`` under ``preset``.
+
+    Atmospheric CO2 is the aqueous CO2 scaled by the preset's atmospheric
+    fraction, or ``None`` when that fraction is unspecified.
+    """
+    aqueous = co2_from_disturbed_carbon(disturbed_carbon_mass, preset)
+    atmospheric = (
+        None if preset.atmospheric_fraction is None else aqueous * preset.atmospheric_fraction
+    )
+    return CO2Estimate(aqueous=aqueous, atmospheric=atmospheric)
 
 
 @dataclass(frozen=True)

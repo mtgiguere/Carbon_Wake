@@ -105,3 +105,24 @@ hatch for unreachable defensive code. `pip-audit` can fail the build on a CVE in
 forces a conscious pin/upgrade rather than silent exposure. As Django/PostGIS
 arrive, coverage `omit` patterns (settings, migrations, wsgi/asgi) will be added
 here as their own recorded decision.
+
+---
+
+## 2026-08-14 — ADR-0007: Markdown is excluded from ruff
+
+**Context.** ruff ≥ 0.16 formats fenced Python code blocks inside `.md` files by
+default. CI (which installs latest ruff per ADR-0004's no-speculative-pins spirit)
+started failing `ruff format --check` on `TDD_CONTRACT.md` — a document whose code
+snippets are *verbatim historical specimens* of real past bugs (one is literally
+about comment spacing). Docs also carry deliberately abbreviated pseudo-code that
+is illustrative, not executable.
+
+**Decision.** `exclude = ["*.md"]` in `[tool.ruff]`. Ruff lints and formats
+Python source; it does not touch documentation. We keep `ruff>=0.5` unpinned —
+tracking the latest formatter on real source is desirable; rewriting quoted
+history is not.
+
+**Consequences.** Code blocks in docs are never auto-formatted, so their style
+may drift from the source style — acceptable, since their job is fidelity to what
+was written (or readable abbreviation), not conformance. If a future doc wants
+enforced formatting, it can be carved back in as its own decision.

@@ -73,6 +73,11 @@ fail_under = 100
 target-version = "py312"
 line-length = 100
 src = ["src", "tests"]
+# Markdown is out of scope for ruff entirely (ruff >= 0.16 formats fenced code
+# blocks inside .md files by default). Our docs quote historical code specimens
+# verbatim (TDD_CONTRACT.md) and deliberately abbreviated pseudo-code
+# (SCIENCE_BASIS.md); reformatting either would rewrite the record. See ADR-0007.
+exclude = ["*.md"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
