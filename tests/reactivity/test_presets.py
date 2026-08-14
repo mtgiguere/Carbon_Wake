@@ -13,10 +13,12 @@ from hypothesis import given
 from hypothesis import strategies as st
 
 from carbon_atlas.reactivity.presets import (
+    PUBLISHED_PRESETS,
     ReactivityPreset,
     co2_from_disturbed_carbon,
     estimate_co2,
     estimate_range,
+    get_preset,
 )
 
 
@@ -257,3 +259,88 @@ def test_preset_can_declare_its_fraction_as_derived():
     )
 
     assert preset.derivation == "test fixture: quoted-value / 100"
+
+
+# --- The published catalog ----------------------------------------------------
+# The named, citable encodings of the real published estimates (SCIENCE_BASIS.md
+# is the provenance record; these tests pin the code to it). Every figure here is
+# either a verified quoted value or explicitly flagged as derived. Epstein 2022
+# published no competing point estimate, so it deliberately has NO preset — a
+# review's doubt must not be laundered into a number it never gave.
+
+
+def test_sala_2021_encodes_the_verified_high_estimate():
+    """Sala et al. 2021: 29.7% average remineralization efficiency (verified from
+    the paper), aqueous-only (atmospheric fraction 'unknown'), no additionality
+    credit. This is the dispute's quoted high anchor."""
+    p = get_preset("sala_2021")
+
+    assert p.remineralization_fraction == 0.297
+    assert p.atmospheric_fraction is None
+    assert not p.accounts_for_additionality
+    assert p.derivation is None  # a quoted figure, not an inference
+    assert "10.1038/s41586-021-03371-z" in p.citation
+
+
+def test_atwood_2024_supplies_the_atmospheric_fraction_range():
+    """Atwood et al. 2024 (the Sala group's follow-up) keeps Sala's disturbed-carbon
+    flux and adds the verified 55-60% aqueous-to-atmosphere range, encoded as two
+    presets so the range's ends stay citable."""
+    low = get_preset("atwood_2024_low")
+    high = get_preset("atwood_2024_high")
+
+    assert low.remineralization_fraction == 0.297
+    assert high.remineralization_fraction == 0.297
+    assert low.atmospheric_fraction == 0.55
+    assert high.atmospheric_fraction == 0.60
+    assert not low.accounts_for_additionality
+    assert "10.3389/fmars.2023.1125137" in low.citation
+    assert "10.3389/fmars.2023.1125137" in high.citation
+
+
+def test_hiddink_2023_presets_are_inferred_not_quoted():
+    """Hiddink et al. 2023 published only an overestimate FACTOR (100-1000x), no
+    absolute figure. Our encodings — Sala's 29.7% divided by that factor — are
+    therefore inferences and must say so via a derivation note. They also credit
+    additionality, which is the substance of their critique."""
+    low = get_preset("hiddink_2023_low")
+    high = get_preset("hiddink_2023_high")
+
+    assert math.isclose(low.remineralization_fraction, 0.297 / 1000, rel_tol=1e-12)
+    assert math.isclose(high.remineralization_fraction, 0.297 / 100, rel_tol=1e-12)
+    assert low.accounts_for_additionality
+    assert high.accounts_for_additionality
+    assert low.derivation is not None
+    assert high.derivation is not None
+    assert "inferred" in low.derivation.lower()
+    assert "inferred" in high.derivation.lower()
+    assert "10.1038/s41586-023-06014-7" in low.citation
+
+
+def test_published_preset_keys_are_unique():
+    """Keys are lookup identities; a duplicate would make get_preset ambiguous."""
+    keys = [p.key for p in PUBLISHED_PRESETS]
+
+    assert len(keys) == len(set(keys))
+
+
+def test_get_preset_unknown_key_raises_and_names_the_available_keys():
+    """A typo'd key must fail loudly AND helpfully — the error names what exists,
+    so the caller is not left guessing at the catalog."""
+    with pytest.raises(KeyError) as excinfo:
+        get_preset("sala_2020")
+
+    assert "sala_2021" in str(excinfo.value)
+
+
+def test_catalog_range_spans_the_published_dispute():
+    """The whole point: across the published presets, the high/low ratio is the
+    1000x that separates Sala's quoted figure from Hiddink's strongest (inferred)
+    correction — and each end is attributed to its preset."""
+    r = estimate_range(disturbed_carbon_mass=1000.0, presets=PUBLISHED_PRESETS)
+
+    assert math.isclose(r.high / r.low, 1000.0, rel_tol=1e-9)
+    assert r.low_preset.key == "hiddink_2023_low"
+    # Sala 2021 and both Atwood 2024 presets tie for the aqueous high (same
+    # disturbed-carbon flux), so pin the value rather than an arbitrary tiebreak.
+    assert r.high_preset.remineralization_fraction == 0.297
