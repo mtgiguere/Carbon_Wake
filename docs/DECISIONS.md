@@ -126,3 +126,30 @@ history is not.
 may drift from the source style — acceptable, since their job is fidelity to what
 was written (or readable abbreviation), not conformance. If a future doc wants
 enforced formatting, it can be carved back in as its own decision.
+
+---
+
+## 2026-08-14 — ADR-0008: v1 data sources — Diesing 2021 + GFW bulk v3
+
+**Context.** The PROJECT_SPEC step-1 data spike (docs/DATA_SPIKE.md) verified
+access, formats, and licenses for trawling-effort and sediment-carbon data.
+
+**Decision.** v1 (North Sea, per ADR-0003) builds on:
+
+1. **Carbon:** Diesing 2021, PANGAEA 10.1594/PANGAEA.928272 — 500 m GeoTIFFs of
+   OC density and OC accumulation rate **with per-pixel uncertainty**, full
+   North Sea + Skagerrak, CC-BY-4.0, ~53 MB anonymous download.
+2. **Effort:** GFW Apparent Fishing Effort **v3 bulk files** (Zenodo
+   10.5281/zenodo.14982712), fleet-daily 0.01° by flag + gear type, 2012–2024,
+   CC BY-NC 4.0. The ETL takes the static files, not the API — no token, no
+   rate limits, reproducible inputs. The v3 API (token required) is deferred to
+   future interactive/tile features.
+
+**Consequences.** (a) The atlas is **non-commercial** while it carries
+GFW-derived layers (CC BY-NC 4.0), and must carry an attribution stack (GFW +
+Diesing + per-preset citations) passed on to downstream users. (b) GFW's public
+gear class is "trawlers, all types" — bottom vs. midwater is NOT distinguished;
+whichever isolation strategy the ETL adopts (as-is + honest labeling vs.
+registry cross-reference) is its own future ADR, and the UI must state what the
+layer actually shows. (c) Per-pixel carbon uncertainty is available from day
+one, so the never-a-bare-number rule extends to the map layer itself.
