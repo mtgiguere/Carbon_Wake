@@ -59,7 +59,9 @@ scientifically-load-bearing code trivially testable and safe to extend.
 
 ## 3. The pure-core rule (non-negotiable)
 
-`carbon_atlas.reactivity` must never import:
+The pure packages — `carbon_atlas.reactivity` (the disputed science) and
+`carbon_atlas.effort` (the 0.01° grid model and effort aggregation) — must
+never import:
 
 - a web framework (Django, DRF, FastAPI),
 - a database driver (psycopg, sqlalchemy),
@@ -119,10 +121,12 @@ caveats for Windows are in `TDD_CONTRACT.md`.
 
 ```
 tests/
-  reactivity/            unit + Hypothesis property tests for the pure core
+  reactivity/            unit + Hypothesis property tests for the pure science core
+  effort/                unit + property tests for the grid/aggregation pure core
+  ingest/                parser contract tests + @integration tests on real samples
   fixtures/
     real/                small, committed, redistributable real-format samples
-                         used by @pytest.mark.integration tests
+      gfw/               verbatim head of a real GFW fleet-daily CSV (see its README)
 ```
 
 Default `pytest` run excludes nothing by marker yet; as `integration`/`visual`
@@ -132,11 +136,14 @@ suites grow, the fast unit run is `pytest -m "not integration and not visual"`.
 
 ## 7. Build order (mirrors PROJECT_SPEC "suggested build order")
 
-1. **Reactivity presets (pure core)** ← we are here. The science, provable, first.
-2. Data-exploration spike: what's actually pullable from Global Fishing Watch;
-   which sedimentary-carbon dataset is redistributable (region-first: North Sea).
-3. ETL + PostGIS schema: one region's trawling + one carbon dataset, spatially
-   joined, overlap query proven.
+1. Reactivity presets (pure core) — done. The science, provable, first.
+2. Data-exploration spike — done (docs/DATA_SPIKE.md, ADR-0008): sources are
+   GFW fleet-daily v3 bulk CSVs + Diesing 2021 GeoTIFFs, North Sea first.
+3. **ETL + PostGIS schema** ← we are here. One region's trawling + one carbon
+   dataset, spatially joined, overlap query proven. So far: the pure effort
+   grid/aggregation core and the streaming GFW fleet-daily parser (stdlib csv —
+   no pandas needed to ingest effort). Next: the carbon raster side, then the
+   join.
 4. Django + DRF API serving overlay + preset-driven estimates.
 5. Django admin curation for sources/citations/confidence tiers.
 6. Frontend map: static overlay, then the preset toggle and uncertainty display.

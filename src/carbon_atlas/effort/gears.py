@@ -15,7 +15,9 @@ INCLUDED_GEARTYPES = frozenset({"trawlers", "dredge_fishing"})
 
 #: What every surface (map UI, API, docs) must call this layer. Never "bottom
 #: trawling" — that is a claim the underlying gear classes cannot support.
-EFFORT_LAYER_LABEL = "All trawlers (bottom and midwater) plus dredgers — GFW gear classes as published"
+EFFORT_LAYER_LABEL = (
+    "All trawlers (bottom and midwater) plus dredgers — GFW gear classes as published"
+)
 
 
 def is_included_gear(geartype: str) -> bool:
