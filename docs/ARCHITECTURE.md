@@ -147,6 +147,7 @@ suites grow, the fast unit run is `pytest -m "not integration and not visual"`.
 4. Django + DRF API serving overlay + preset-driven estimates.
 5. Django admin curation for sources/citations/confidence tiers.
 6. Frontend map: static overlay, then the preset toggle and uncertainty display.
+   Preceded by the showcase/storytelling spike (docs/SHOWCASE_SPIKE.md).
 7. Docker Compose deployment, self-hosted end to end.
 8. (Later) Keycloak + contributor accounts.
 
