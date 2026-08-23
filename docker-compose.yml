@@ -1,0 +1,26 @@
+# The self-hosted stack (PROJECT_SPEC: deliberately Docker Compose on a single
+# VM, no managed services). Services join as their build-order step arrives —
+# PostGIS is step 3's; Django and Keycloak come later.
+#
+# Host port 5434: this dev machine already runs a native PostgreSQL on 5432
+# and another project's instance on 5433. Inside the network it is plain 5432.
+services:
+  postgis:
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_DB: carbon_atlas
+      POSTGRES_USER: carbon_atlas
+      # Dev-only default; set CARBON_ATLAS_DB_PASSWORD for anything shared.
+      POSTGRES_PASSWORD: ${CARBON_ATLAS_DB_PASSWORD:-carbon_atlas_dev}
+    ports:
+      - "5434:5432"
+    volumes:
+      - postgis_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U carbon_atlas -d carbon_atlas"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+volumes:
+  postgis_data:

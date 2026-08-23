@@ -128,6 +128,9 @@ tests/
   carbon/                unit + property tests for the carbon-quantity pure core
   overlap/               join contract tests + the real-data end-to-end milestone test
   ingest/                parser contract tests + @integration tests on real samples
+  db/                    @integration tests against a real PostGIS (docker compose up -d;
+                         a service container in CI) — the schema's constraints are the
+                         behavior under test, so no database means FAIL, not skip
   fixtures/
     real/                small, committed, redistributable real-format samples
       gfw/               verbatim head of a real GFW fleet-daily CSV (see its README)
@@ -152,7 +155,10 @@ suites grow, the fast unit run is `pytest -m "not integration and not visual"`.
    **overlap join — proven end to end on committed real samples** (a year of
    real German Bight effort against real carbon pixels, matching
    independently computed ground truth; unmapped effort is reported, never
-   dropped). Remaining: PostGIS schema + the full-region ETL runner.
+   dropped), and the **PostGIS store** (ADR-0010: raw-SQL schema + psycopg,
+   honesty rules as table constraints, exact round-trip, GiST-indexed cell
+   polygons; docker-compose.yml provides the database). Remaining: the
+   full-region ETL runner.
 4. Django + DRF API serving overlay + preset-driven estimates.
 5. Django admin curation for sources/citations/confidence tiers.
 6. Frontend map: static overlay, then the preset toggle and uncertainty display.

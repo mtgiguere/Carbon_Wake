@@ -16,7 +16,8 @@ authors = [{ name = "Matt" }]
 # carbon) pull nothing, and Django / DRF / psycopg arrive with the API and
 # persistence layers.
 dependencies = [
-    "rasterio>=1.5",  # arrived with carbon_atlas.ingest.diesing (GeoTIFF reading)
+    "rasterio>=1.5",       # arrived with carbon_atlas.ingest.diesing (GeoTIFF reading)
+    "psycopg[binary]>=3.2",  # arrived with carbon_atlas.db (PostGIS store, ADR-0010)
 ]
 
 [project.optional-dependencies]
@@ -33,6 +34,10 @@ dev = [
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+# The ETL-owned schema ships with the code that applies it (ADR-0010).
+"carbon_atlas.db" = ["*.sql"]
 
 # ---------------------------------------------------------------------------
 # pytest

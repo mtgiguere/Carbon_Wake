@@ -15,6 +15,23 @@ concurrency:
 jobs:
   quality:
     runs-on: ubuntu-latest
+    services:
+      # Real PostGIS for the db integration tests — the schema's constraints
+      # ARE the behavior under test (ADR-0010). Same port as docker-compose.yml
+      # so the tests' default DSN works unchanged.
+      postgis:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_DB: carbon_atlas
+          POSTGRES_USER: carbon_atlas
+          POSTGRES_PASSWORD: carbon_atlas_dev
+        ports:
+          - 5434:5432
+        options: >-
+          --health-cmd="pg_isready -U carbon_atlas -d carbon_atlas"
+          --health-interval=5s
+          --health-timeout=3s
+          --health-retries=12
     steps:
       - uses: actions/checkout@v4
 
