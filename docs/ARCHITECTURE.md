@@ -41,7 +41,8 @@ delivery mechanism layered around it.
                     └───────────────▲─────────────────────────────┘
                                     │
                     ┌───────────────┴─────────────────────────────┐
-   ETL              │  GeoPandas/pandas ingest + spatial join      │  ← integration tests
+   ETL              │  streaming ingest (stdlib csv + rasterio)    │  ← integration tests
+                    │  + overlap join + runner (carbon_atlas.etl)  │     on real samples
                     └───────────────▲─────────────────────────────┘
                                     │ disturbed-carbon quantities
                     ┌───────────────┴─────────────────────────────┐
@@ -131,6 +132,7 @@ tests/
   db/                    @integration tests against a real PostGIS (docker compose up -d;
                          a service container in CI) — the schema's constraints are the
                          behavior under test, so no database means FAIL, not skip
+  etl/                   the runner end to end: real zip -> scoped overlap -> stored run
   fixtures/
     real/                small, committed, redistributable real-format samples
       gfw/               verbatim head of a real GFW fleet-daily CSV (see its README)
@@ -147,18 +149,17 @@ suites grow, the fast unit run is `pytest -m "not integration and not visual"`.
 1. Reactivity presets (pure core) — done. The science, provable, first.
 2. Data-exploration spike — done (docs/DATA_SPIKE.md, ADR-0008): sources are
    GFW fleet-daily v3 bulk CSVs + Diesing 2021 GeoTIFFs, North Sea first.
-3. **ETL + PostGIS schema** ← we are here. Done so far: the pure effort
-   grid/aggregation core, the streaming GFW fleet-daily parser (stdlib csv —
-   no pandas needed to ingest effort), the pure carbon-density type
-   (mean + uncertainty inseparable), the Diesing paired-raster reader
-   (rasterio; nodata means absence, corrupt pairing fails loudly), and the
-   **overlap join — proven end to end on committed real samples** (a year of
-   real German Bight effort against real carbon pixels, matching
-   independently computed ground truth; unmapped effort is reported, never
-   dropped), and the **PostGIS store** (ADR-0010: raw-SQL schema + psycopg,
+3. ETL + PostGIS schema — done. The pure effort grid/aggregation core; the
+   streaming GFW fleet-daily parser and year-zip iterator (stdlib csv — no
+   pandas needed to ingest effort); the pure carbon-density type (mean +
+   uncertainty inseparable); the Diesing paired-raster reader (rasterio;
+   nodata means absence, corrupt pairing fails loudly); the overlap join,
+   proven end to end on committed real samples (unmapped effort is reported,
+   never dropped); the PostGIS store (ADR-0010: raw-SQL schema + psycopg,
    honesty rules as table constraints, exact round-trip, GiST-indexed cell
-   polygons; docker-compose.yml provides the database). Remaining: the
-   full-region ETL runner.
+   polygons; docker-compose.yml provides the database); and
+   **carbon_atlas.etl.run_overlap_etl** — one call from year zip to stored
+   run, scoped to the carbon dataset's own WGS84 envelope.
 4. Django + DRF API serving overlay + preset-driven estimates.
 5. Django admin curation for sources/citations/confidence tiers.
 6. Frontend map: static overlay, then the preset toggle and uncertainty display.
