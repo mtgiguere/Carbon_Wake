@@ -13,9 +13,11 @@ from pathlib import Path
 
 import rasterio
 from rasterio.warp import transform as transform_coordinates
+from rasterio.warp import transform_bounds
 from rasterio.windows import Window
 
 from carbon_atlas.carbon.density import CarbonDensity
+from carbon_atlas.effort.grid import BoundingBox
 
 _WGS84 = "EPSG:4326"
 
@@ -75,6 +77,19 @@ class DensityRasterPair:
         if mean_absent:
             return None
         return CarbonDensity(mean=mean, uncertainty=uncertainty)
+
+    def wgs84_envelope(self) -> BoundingBox:
+        """The rasters' extent as a WGS84 box — the region scope derives from
+        the carbon data itself, never from a hand-typed constant.
+
+        ``transform_bounds`` densifies the edges before projecting, so where
+        the projection curves the box is slightly generous, never tight: no
+        real pixel can fall outside it.
+        """
+        lon_min, lat_min, lon_max, lat_max = transform_bounds(
+            self._mean.crs, _WGS84, *self._mean.bounds
+        )
+        return BoundingBox(lat_min=lat_min, lat_max=lat_max, lon_min=lon_min, lon_max=lon_max)
 
     def close(self) -> None:
         self._mean.close()
