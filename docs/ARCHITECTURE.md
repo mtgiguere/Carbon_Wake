@@ -59,10 +59,11 @@ scientifically-load-bearing code trivially testable and safe to extend.
 
 ## 3. The pure-core rule (non-negotiable)
 
-The pure packages — `carbon_atlas.reactivity` (the disputed science),
-`carbon_atlas.effort` (the 0.01° grid model and effort aggregation), and
+The pure modules — `carbon_atlas.reactivity` (the disputed science),
+`carbon_atlas.effort` (the 0.01° grid model and effort aggregation),
 `carbon_atlas.carbon` (carbon quantities that never travel without their
-uncertainty) — must never import:
+uncertainty), and `carbon_atlas.overlap` (the effort↔carbon join, pure by
+sampler injection) — must never import:
 
 - a web framework (Django, DRF, FastAPI),
 - a database driver (psycopg, sqlalchemy),
@@ -125,6 +126,7 @@ tests/
   reactivity/            unit + Hypothesis property tests for the pure science core
   effort/                unit + property tests for the grid/aggregation pure core
   carbon/                unit + property tests for the carbon-quantity pure core
+  overlap/               join contract tests + the real-data end-to-end milestone test
   ingest/                parser contract tests + @integration tests on real samples
   fixtures/
     real/                small, committed, redistributable real-format samples
@@ -142,13 +144,15 @@ suites grow, the fast unit run is `pytest -m "not integration and not visual"`.
 1. Reactivity presets (pure core) — done. The science, provable, first.
 2. Data-exploration spike — done (docs/DATA_SPIKE.md, ADR-0008): sources are
    GFW fleet-daily v3 bulk CSVs + Diesing 2021 GeoTIFFs, North Sea first.
-3. **ETL + PostGIS schema** ← we are here. One region's trawling + one carbon
-   dataset, spatially joined, overlap query proven. So far: the pure effort
+3. **ETL + PostGIS schema** ← we are here. Done so far: the pure effort
    grid/aggregation core, the streaming GFW fleet-daily parser (stdlib csv —
    no pandas needed to ingest effort), the pure carbon-density type
-   (mean + uncertainty inseparable), and the Diesing paired-raster reader
-   (rasterio; nodata means absence, corrupt pairing fails loudly). Next: the
-   effort↔carbon join, then PostGIS.
+   (mean + uncertainty inseparable), the Diesing paired-raster reader
+   (rasterio; nodata means absence, corrupt pairing fails loudly), and the
+   **overlap join — proven end to end on committed real samples** (a year of
+   real German Bight effort against real carbon pixels, matching
+   independently computed ground truth; unmapped effort is reported, never
+   dropped). Remaining: PostGIS schema + the full-region ETL runner.
 4. Django + DRF API serving overlay + preset-driven estimates.
 5. Django admin curation for sources/citations/confidence tiers.
 6. Frontend map: static overlay, then the preset toggle and uncertainty display.

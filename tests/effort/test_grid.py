@@ -10,6 +10,8 @@ different grid is a wrong input, not a rounding problem.
 Written test-first per TDD_CONTRACT.md.
 """
 
+import math
+
 import pytest
 from hypothesis import given
 from hypothesis import strategies as st
@@ -72,3 +74,22 @@ def test_extreme_but_valid_corners_are_accepted(lat, lon):
     cell = cell_from_lower_left(lat, lon)
 
     assert cell == GridCell(lat_index=round(lat * 100), lon_index=round(lon * 100))
+
+
+def test_a_cell_center_is_half_a_cell_in_from_its_lower_left_corner():
+    """The center of the cell whose corner is (55.55, 3.01) is (55.555, 3.015)
+    — where the carbon layer gets sampled for this cell."""
+    cell = GridCell(lat_index=5555, lon_index=301)
+
+    assert math.isclose(cell.center_lat, 55.555, rel_tol=1e-12)
+    assert math.isclose(cell.center_lon, 3.015, rel_tol=1e-12)
+
+
+@given(lat_index=_lat_indices, lon_index=_lon_indices)
+def test_every_cell_center_lies_strictly_inside_its_own_cell(lat_index, lon_index):
+    """Property: for EVERY cell, the center is strictly between the cell's
+    edges — never on a boundary, where a sample could land in a neighbor."""
+    cell = GridCell(lat_index=lat_index, lon_index=lon_index)
+
+    assert lat_index / 100 < cell.center_lat < (lat_index + 1) / 100
+    assert lon_index / 100 < cell.center_lon < (lon_index + 1) / 100

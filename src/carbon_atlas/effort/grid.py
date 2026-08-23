@@ -25,6 +25,16 @@ class GridCell:
     lat_index: int
     lon_index: int
 
+    @property
+    def center_lat(self) -> float:
+        """The cell center's latitude — where point samples represent the cell."""
+        return (self.lat_index + 0.5) / 100
+
+    @property
+    def center_lon(self) -> float:
+        """The cell center's longitude — where point samples represent the cell."""
+        return (self.lon_index + 0.5) / 100
+
 
 def _snap(value: float, axis: str, min_index: int, max_index: int) -> int:
     """``value`` (decimal degrees) as an exact centidegree index, or ValueError
