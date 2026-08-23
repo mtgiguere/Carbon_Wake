@@ -1,0 +1,4 @@
+# Real-format fixtures are verbatim specimens of external published data
+# (Blind spot A). Git must never normalize their line endings — a byte-for-byte
+# copy is the whole point.
+tests/fixtures/real/** -text
