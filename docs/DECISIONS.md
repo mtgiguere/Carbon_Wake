@@ -180,3 +180,41 @@ bottom-contact effort wherever midwater trawling is common; the label carries
 that caveat. (c) The set of included gear classes is a named constant in one
 place, so the future registry-refined filter replaces one seam, not a scatter
 of string literals.
+
+---
+
+## 2026-08-23 — ADR-0010: ETL-owned PostGIS schema is raw SQL + psycopg, honesty rules as constraints
+
+**Context.** Step 3 needs the overlap persisted. Django arrives at step 4 and
+brings its own migration machinery — but only for the tables it owns (curation:
+sources, citations, confidence tiers). Letting a future framework own the ETL's
+tables now would invert the dependency arrows (ARCHITECTURE §2) and stall step
+3 on step 4's stack.
+
+**Decision.**
+
+1. The ETL-owned tables (`etl_run`, `overlap_cell`) are defined in a plain,
+   idempotent `schema.sql` applied by `carbon_atlas.db` via **psycopg 3** (the
+   dependency arrives with this module, ADR-0004). Django will own only its
+   curation tables; if it needs the ETL tables it maps them unmanaged.
+2. The project's honesty rules are enforced **in the database as CHECK
+   constraints**, not only in Python: fishing hours non-negative, carbon
+   mean/uncertainty non-negative and — the never-half-a-pair rule —
+   `(mean IS NULL) = (uncertainty IS NULL)`. A mapped cell has the full pair;
+   an unmapped cell has neither; nothing else can exist in the table.
+3. One table holds both sides of the join (`oc_density_* IS NULL` = unmapped),
+   so unmapped effort is stored with the same fidelity as mapped effort —
+   reported, never dropped, all the way into persistence.
+4. Every `etl_run` row records provenance: sources, the ADR-0009 effort-layer
+   label verbatim, and both sides' cell/hour totals.
+5. Cell geometry is stored as `geometry(Polygon, 4326)` with a GiST index,
+   built in SQL from the integer cell indices — the WGS84 0.01° grid is the
+   storage geometry; projection to LAEA or web-mercator is a query/tile-time
+   concern.
+
+**Consequences.** (a) A corrupt half-pair cannot be inserted even by a buggy
+future writer — the schema is the last line of the honesty defense and is
+integration-tested directly. (b) Two schema-management regimes will coexist
+once Django lands (SQL for ETL tables, migrations for curation tables); the
+boundary is "who writes the table". (c) The dev stack gains docker-compose.yml
+(PostGIS on host port 5434 — 5432/5433 are taken on the dev machine).

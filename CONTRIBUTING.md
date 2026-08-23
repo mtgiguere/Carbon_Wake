@@ -43,6 +43,19 @@ number. For genuinely unreachable defensive code, annotate the line with
 colour a line green. If the floor ever needs to move, that's a decision recorded
 in `docs/DECISIONS.md`, not a silent edit.
 
+## The database tests need a real PostGIS
+
+`tests/db/` runs against a live PostGIS — the schema's constraints are the
+behavior under test (ADR-0010), so without a database those tests FAIL rather
+than skip. Locally:
+
+```sh
+docker compose up -d        # PostGIS on localhost:5434 (5432/5433 dodge local installs)
+```
+
+CI provides the same image as a service container. A non-default DSN can be
+set via `CARBON_ATLAS_DB_URL`.
+
 ## Windows quirk: PostgreSQL's PROJ_LIB breaks rasterio
 
 The PostgreSQL/PostGIS installer sets a system-wide `PROJ_LIB` pointing at its
