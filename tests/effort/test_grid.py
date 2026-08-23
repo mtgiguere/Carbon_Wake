@@ -16,7 +16,7 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
-from carbon_atlas.effort.grid import GridCell, cell_from_lower_left
+from carbon_atlas.effort.grid import BoundingBox, GridCell, cell_from_lower_left
 
 # Every lower-left corner the grid can have: latitude corners span [-90, 90)
 # and longitude corners [-180, 180) — a corner AT +90 or +180 would name a cell
@@ -93,3 +93,39 @@ def test_every_cell_center_lies_strictly_inside_its_own_cell(lat_index, lon_inde
 
     assert lat_index / 100 < cell.center_lat < (lat_index + 1) / 100
     assert lon_index / 100 < cell.center_lon < (lon_index + 1) / 100
+
+
+# --- BoundingBox: the region scope -------------------------------------------
+# The ETL scopes effort to a WGS84 bounding box (in practice, the carbon
+# dataset's envelope): a cell is in scope when its CENTER is inside the box —
+# the same representative point the carbon layer is sampled at, so scoping and
+# sampling can never disagree about where a cell "is".
+
+
+def test_a_cell_is_inside_a_box_when_its_center_is():
+    """Cell (5390, 764) has center (53.905, 7.645) — inside a box spanning
+    the German Bight, outside a box that stops just south of it."""
+    cell = GridCell(lat_index=5390, lon_index=764)
+    german_bight = BoundingBox(lat_min=53.66, lat_max=53.93, lon_min=7.45, lon_max=7.75)
+    south_of_it = BoundingBox(lat_min=53.0, lat_max=53.9, lon_min=7.45, lon_max=7.75)
+
+    assert german_bight.contains_cell(cell)
+    assert not south_of_it.contains_cell(cell)
+
+
+def test_a_center_exactly_on_the_box_edge_is_inside():
+    """Bounds are inclusive: a center sitting exactly on the boundary is in
+    scope. (Rejected just past it — pinned by the exclusion below.)"""
+    box = BoundingBox(lat_min=53.905, lat_max=54.0, lon_min=7.645, lon_max=8.0)
+
+    assert box.contains_cell(GridCell(lat_index=5390, lon_index=764))
+    assert not box.contains_cell(GridCell(lat_index=5389, lon_index=764))
+    assert not box.contains_cell(GridCell(lat_index=5390, lon_index=763))
+
+
+def test_an_inverted_box_is_rejected_at_construction():
+    """min above max is not a region; it would silently contain nothing."""
+    with pytest.raises(ValueError):
+        BoundingBox(lat_min=54.0, lat_max=53.0, lon_min=7.0, lon_max=8.0)
+    with pytest.raises(ValueError):
+        BoundingBox(lat_min=53.0, lat_max=54.0, lon_min=8.0, lon_max=7.0)
