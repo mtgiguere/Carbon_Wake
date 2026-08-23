@@ -43,6 +43,21 @@ number. For genuinely unreachable defensive code, annotate the line with
 colour a line green. If the floor ever needs to move, that's a decision recorded
 in `docs/DECISIONS.md`, not a silent edit.
 
+## Windows quirk: PostgreSQL's PROJ_LIB breaks rasterio
+
+The PostgreSQL/PostGIS installer sets a system-wide `PROJ_LIB` pointing at its
+own (older-layout) `proj.db`, which makes every rasterio CRS operation fail
+with `DATABASE.LAYOUT.VERSION.MINOR ... It comes from another PROJ
+installation`. rasterio ships a current proj.db of its own and finds it when
+the variable is absent — so unset it for any test or ETL run:
+
+```sh
+unset PROJ_LIB              # Git Bash
+$env:PROJ_LIB = $null       # PowerShell
+```
+
+CI is unaffected (no PostgreSQL on the runners).
+
 ## The loop (every change)
 
 1. Write one test describing the behavior you want. Run it. **Confirm it fails
