@@ -153,3 +153,30 @@ whichever isolation strategy the ETL adopts (as-is + honest labeling vs.
 registry cross-reference) is its own future ADR, and the UI must state what the
 layer actually shows. (c) Per-pixel carbon uncertainty is available from day
 one, so the never-a-bare-number rule extends to the map layer itself.
+
+---
+
+## 2026-08-23 — ADR-0009: v1 shows GFW gear classes as-is, honestly labeled
+
+**Context.** ADR-0008 consequence (b): GFW's public taxonomy lumps bottom and
+midwater trawlers into one "trawlers" class. The literature's remedy (the
+Sala/Pristine Seas lineage) cross-references GFW vessels against official fleet
+registries to strip out midwater/pelagic trawlers — more defensible, but a
+substantial workstream (registry acquisition, vessel matching) that would sit
+in front of any overlap existing at all.
+
+**Decision** (project owner, 2026-08-23). v1 uses GFW `trawlers` +
+`dredge_fishing` effort **as published**, and every surface that shows the
+layer (map UI, API responses, docs) must label it as *"all trawlers (bottom
+and midwater) plus dredgers"* — never as "bottom trawling". The registry
+cross-reference remains on the roadmap as a swap-in refinement with its own
+future ADR; the gear filter is kept a single, replaceable seam in the code so
+that swap stays cheap.
+
+**Consequences.** (a) The overlap ships sooner and the honest-labeling burden
+moves into the UI/API contract, which fits the project's ethos — the whole tool
+is an exercise in labeling uncertainty. (b) v1's effort layer *overstates*
+bottom-contact effort wherever midwater trawling is common; the label carries
+that caveat. (c) The set of included gear classes is a named constant in one
+place, so the future registry-refined filter replaces one seam, not a scatter
+of string literals.
