@@ -11,12 +11,13 @@ requires-python = "==3.12.*"
 license = { text = "TBD" }
 authors = [{ name = "Matt" }]
 
-# Runtime dependencies are intentionally EMPTY at this stage.
 # Guiding rule (see docs/ARCHITECTURE.md): a dependency is added only when the
-# module that needs it is being built. The reactivity science core is pure
-# stdlib + typing, so it pulls nothing. GeoPandas / Django / DRF / psycopg
-# arrive with the ETL, API, and persistence modules respectively.
-dependencies = []
+# module that needs it is being built — the pure cores (reactivity, effort,
+# carbon) pull nothing, and Django / DRF / psycopg arrive with the API and
+# persistence layers.
+dependencies = [
+    "rasterio>=1.5",  # arrived with carbon_atlas.ingest.diesing (GeoTIFF reading)
+]
 
 [project.optional-dependencies]
 # The developer + CI toolchain. Everything CI runs is installable here, so the
