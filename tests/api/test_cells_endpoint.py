@@ -1,9 +1,10 @@
 """HTTP contract for the bbox-scoped trawled-cells endpoint.
 
 This is the map's data feed: GeoJSON features whose geometry is the real
-0.01-degree cell polygon and whose properties carry fishing hours and the
-FULL carbon pair — never a bare mean. Errors are loud and specific: an
-unknown run is a 404 naming the id, a missing or malformed bbox is a 400.
+0.01-degree cell polygon and whose properties carry fishing hours — per gear
+class AND totalled — plus the FULL carbon pair, never a bare mean. Errors are
+loud and specific: an unknown run is a 404 naming the id, a missing or
+malformed bbox is a 400.
 
 Written test-first per TDD_CONTRACT.md.
 """
@@ -23,16 +24,16 @@ _RESULT = OverlapResult(
     trawled=(
         TrawledCell(
             cell=GridCell(lat_index=5390, lon_index=764),
-            fishing_hours=15.0057,
+            fishing_hours_by_gear={"trawlers": 15.0057, "dredge_fishing": 0.5},
             carbon=CarbonDensity(mean=1.5652642, uncertainty=2.4579988),
         ),
         TrawledCell(
             cell=GridCell(lat_index=5395, lon_index=770),
-            fishing_hours=3.0,
+            fishing_hours_by_gear={"trawlers": 3.0},
             carbon=CarbonDensity(mean=4.2, uncertainty=1.1),
         ),
     ),
-    unmapped_effort={GridCell(lat_index=5390, lon_index=765): 7.25},
+    unmapped_effort={GridCell(lat_index=5390, lon_index=765): {"trawlers": 7.25}},
 )
 
 
@@ -57,7 +58,10 @@ def test_cells_in_a_bbox_are_geojson_features_with_the_full_carbon_pair(client, 
         "type": "Polygon",
         "coordinates": [[[7.64, 53.9], [7.65, 53.9], [7.65, 53.91], [7.64, 53.91], [7.64, 53.9]]],
     }
-    assert math.isclose(feature["properties"]["fishing_hours"], 15.0057, rel_tol=1e-12)
+    assert math.isclose(feature["properties"]["fishing_hours"], 15.5057, rel_tol=1e-12)
+    by_gear = feature["properties"]["fishing_hours_by_gear"]
+    assert math.isclose(by_gear["trawlers"], 15.0057, rel_tol=1e-12)
+    assert math.isclose(by_gear["dredge_fishing"], 0.5, rel_tol=1e-12)
     assert math.isclose(feature["properties"]["oc_density"]["mean"], 1.5652642, rel_tol=1e-9)
     assert math.isclose(feature["properties"]["oc_density"]["uncertainty"], 2.4579988, rel_tol=1e-9)
 

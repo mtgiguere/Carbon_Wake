@@ -112,8 +112,13 @@ def store_overlap(
         return by_gear.get("trawlers"), by_gear.get("dredge_fishing")
 
     rows = [
-        (t.cell.lat_index, t.cell.lon_index, *gear_columns(t.fishing_hours_by_gear),
-         t.carbon.mean, t.carbon.uncertainty)
+        (
+            t.cell.lat_index,
+            t.cell.lon_index,
+            *gear_columns(t.fishing_hours_by_gear),
+            t.carbon.mean,
+            t.carbon.uncertainty,
+        )
         for t in result.trawled
     ] + [
         (cell.lat_index, cell.lon_index, *gear_columns(by_gear), None, None)

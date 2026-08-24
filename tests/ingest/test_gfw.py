@@ -202,6 +202,6 @@ def test_real_published_day_file_parses_completely_and_matches_ground_truth():
     assert records[0].fishing_hours == 0.0
 
     totals = aggregate_fishing_hours(records)
-    included_hours = sum(totals.values())
+    included_hours = sum(sum(by_gear.values()) for by_gear in totals.values())
     assert sum(1 for r in records if r.geartype == "trawlers") == 177
     assert math.isclose(included_hours, 61.8818, rel_tol=1e-9)
