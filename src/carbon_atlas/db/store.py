@@ -18,13 +18,29 @@ from carbon_atlas.overlap import OverlapResult, TrawledCell
 
 _SCHEMA = Path(__file__).with_name("schema.sql")
 
-_INSERT_CELL = (
+# Bulk load path: COPY the raw values into a session-temp stage, then one
+# INSERT..SELECT that builds each cell's polygon in SQL. COPY streams — a
+# full-region run is ~370k rows, where a per-row executemany measurably
+# stalled; and the stage keeps geometry construction in SQL (ADR-0010).
+_CREATE_STAGE = (
+    "CREATE TEMP TABLE _overlap_cell_stage (lat_index integer, lon_index integer,"
+    " fishing_hours double precision, oc_density_mean double precision,"
+    " oc_density_uncertainty double precision)"
+)
+_COPY_STAGE = (
+    "COPY _overlap_cell_stage (lat_index, lon_index, fishing_hours,"
+    " oc_density_mean, oc_density_uncertainty) FROM STDIN"
+)
+_INSERT_FROM_STAGE = (
     "INSERT INTO overlap_cell (run_id, lat_index, lon_index, fishing_hours,"
     " oc_density_mean, oc_density_uncertainty, geom)"
-    " VALUES (%(run_id)s, %(lat)s, %(lon)s, %(hours)s, %(mean)s, %(uncertainty)s,"
-    " ST_MakeEnvelope(%(lon)s / 100.0, %(lat)s / 100.0,"
-    " (%(lon)s + 1) / 100.0, (%(lat)s + 1) / 100.0, 4326))"
+    " SELECT %s, lat_index, lon_index, fishing_hours, oc_density_mean,"
+    " oc_density_uncertainty,"
+    " ST_MakeEnvelope(lon_index / 100.0, lat_index / 100.0,"
+    " (lon_index + 1) / 100.0, (lat_index + 1) / 100.0, 4326)"
+    " FROM _overlap_cell_stage"
 )
+_DROP_STAGE = "DROP TABLE _overlap_cell_stage"
 
 
 def apply_schema(conn: psycopg.Connection) -> None:
@@ -56,29 +72,22 @@ def store_overlap(
     ).fetchone()[0]
 
     rows = [
-        {
-            "run_id": run_id,
-            "lat": t.cell.lat_index,
-            "lon": t.cell.lon_index,
-            "hours": t.fishing_hours,
-            "mean": t.carbon.mean,
-            "uncertainty": t.carbon.uncertainty,
-        }
+        (t.cell.lat_index, t.cell.lon_index, t.fishing_hours, t.carbon.mean, t.carbon.uncertainty)
         for t in result.trawled
     ] + [
-        {
-            "run_id": run_id,
-            "lat": cell.lat_index,
-            "lon": cell.lon_index,
-            "hours": hours,
-            "mean": None,
-            "uncertainty": None,
-        }
+        (cell.lat_index, cell.lon_index, hours, None, None)
         for cell, hours in result.unmapped_effort.items()
     ]
     if rows:
         with conn.cursor() as cur:
-            cur.executemany(_INSERT_CELL, rows)
+            cur.execute(_CREATE_STAGE)
+            try:
+                with cur.copy(_COPY_STAGE) as copy:
+                    for row in rows:
+                        copy.write_row(row)
+                cur.execute(_INSERT_FROM_STAGE, (run_id,))
+            finally:
+                cur.execute(_DROP_STAGE)
     return run_id
 
 

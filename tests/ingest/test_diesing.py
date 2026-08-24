@@ -173,6 +173,22 @@ def test_the_pair_closes_its_files_on_exit(pair_paths):
         pair.sample(*_lat_lon_of_pixel_center(1, 1))
 
 
+def test_the_pair_exposes_its_wgs84_envelope(pair_paths):
+    """The rasters' extent as a WGS84 BoundingBox — the ETL's region scope
+    derives from the carbon data itself, never from a hand-typed constant.
+    Every pixel center must fall inside it (the envelope may be slightly
+    generous where the projection curves; it must never be tight enough to
+    exclude real pixels)."""
+    with DensityRasterPair(*pair_paths) as pair:
+        box = pair.wgs84_envelope()
+
+        for row in range(3):
+            for col in range(3):
+                lat, lon = _lat_lon_of_pixel_center(row, col)
+                assert box.lat_min <= lat <= box.lat_max
+                assert box.lon_min <= lon <= box.lon_max
+
+
 # --- Reality (Blind spot A) --------------------------------------------------
 
 
@@ -218,3 +234,18 @@ def test_real_rasters_have_no_inconsistently_paired_pixel():
     assert len(mapped) == 1868
     assert len(samples) - len(mapped) == 1732
     assert all(s.mean >= 0.0 and s.uncertainty >= 0.0 for s in mapped)
+
+
+@pytest.mark.integration
+def test_real_crop_envelope_contains_its_area_and_not_the_wider_sea():
+    """The real crop's WGS84 envelope contains the pinned in-crop points (sea
+    and land) and excludes Dogger Bank, ~250 km away — so scoping by envelope
+    keeps the region honest in both directions."""
+    with DensityRasterPair(_REAL_MEAN, _REAL_UNC) as pair:
+        box = pair.wgs84_envelope()
+
+    assert box.lat_min <= 53.901543 <= box.lat_max  # pinned sea pixel
+    assert box.lon_min <= 7.599223 <= box.lon_max
+    assert box.lat_min <= 53.665470 <= box.lat_max  # pinned land pixel
+    assert box.lon_min <= 7.483920 <= box.lon_max
+    assert not (box.lat_min <= 54.5 <= box.lat_max and box.lon_min <= 3.0 <= box.lon_max)

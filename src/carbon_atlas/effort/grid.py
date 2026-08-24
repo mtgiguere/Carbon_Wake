@@ -36,6 +36,33 @@ class GridCell:
         return (self.lon_index + 0.5) / 100
 
 
+@dataclass(frozen=True)
+class BoundingBox:
+    """A WGS84 lat/lon box — the ETL's region scope (in practice, the carbon
+    dataset's envelope). Bounds are inclusive."""
+
+    lat_min: float
+    lat_max: float
+    lon_min: float
+    lon_max: float
+
+    def __post_init__(self) -> None:
+        if self.lat_min > self.lat_max or self.lon_min > self.lon_max:
+            raise ValueError(
+                f"inverted bounding box: lat [{self.lat_min}, {self.lat_max}], "
+                f"lon [{self.lon_min}, {self.lon_max}]"
+            )
+
+    def contains_cell(self, cell: GridCell) -> bool:
+        """Whether ``cell`` is in scope — judged by its CENTER, the same
+        representative point the carbon layer is sampled at, so scoping and
+        sampling can never disagree about where a cell is."""
+        return (
+            self.lat_min <= cell.center_lat <= self.lat_max
+            and self.lon_min <= cell.center_lon <= self.lon_max
+        )
+
+
 def _snap(value: float, axis: str, min_index: int, max_index: int) -> int:
     """``value`` (decimal degrees) as an exact centidegree index, or ValueError
     if it is not on the grid / not a possible lower-left corner."""

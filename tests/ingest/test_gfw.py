@@ -22,7 +22,7 @@ import pytest
 
 from carbon_atlas.effort.aggregate import aggregate_fishing_hours
 from carbon_atlas.effort.grid import GridCell
-from carbon_atlas.ingest.gfw import parse_fleet_daily
+from carbon_atlas.ingest.gfw import iter_fleet_daily_zip, parse_fleet_daily
 
 _HEADER = "date,cell_ll_lat,cell_ll_lon,flag,geartype,hours,fishing_hours,mmsi_present"
 
@@ -128,6 +128,57 @@ def test_parsing_is_lazy_a_generator_not_a_list():
     records = parse_fleet_daily(lines)
 
     assert next(records).fishing_hours == 0.5  # the bad line was never reached
+
+
+# --- Streaming a whole year's zip ---------------------------------------------
+# GFW ships a year as one zip of daily CSV members. The zips are gigabytes, so
+# the iterator must stream member-by-member; and runs must be reproducible, so
+# members are read in sorted-name order regardless of how the archive was built.
+
+_BIGHT_CSV = (
+    Path(__file__).parent.parent
+    / "fixtures"
+    / "real"
+    / "gfw"
+    / "fleet-daily-100-v3-2012.german-bight-box.csv"
+)
+
+
+def _zip_of(tmp_path, members):
+    """A zip archive whose members are copies of committed REAL fixture files."""
+    import zipfile
+
+    path = tmp_path / "year.zip"
+    with zipfile.ZipFile(path, "w") as archive:
+        for name, source in members:
+            archive.writestr(name, source.read_text(encoding="utf-8"))
+    return path
+
+
+def test_a_zip_streams_all_members_records_in_sorted_name_order(tmp_path):
+    """Every member's rows come through, later-named members after
+    earlier-named ones even when the archive was written in reverse."""
+    path = _zip_of(
+        tmp_path,
+        [("b-day2.csv", _REAL_FIXTURE), ("a-day1.csv", _BIGHT_CSV)],  # reverse order on purpose
+    )
+
+    records = list(iter_fleet_daily_zip(path))
+
+    assert len(records) == 1153 + 500
+    # a-day1 (the Bight file, first row at 53.68N) precedes b-day2 (the head500
+    # file, first row at -55.15S)
+    assert records[0].cell.lat_index == 5368
+    assert records[1153].cell.lat_index == -5515
+
+
+def test_a_zip_with_no_csv_members_fails_loudly(tmp_path):
+    """A zip holding no CSVs is the wrong archive — refuse, don't yield an
+    empty year that looks like an ocean nobody fished."""
+    path = _zip_of(tmp_path, [])
+
+    with pytest.raises(ValueError):
+        list(iter_fleet_daily_zip(path))
 
 
 # --- Reality (Blind spot A) --------------------------------------------------
