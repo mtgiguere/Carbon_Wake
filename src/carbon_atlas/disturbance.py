@@ -70,6 +70,43 @@ class DisturbedCarbon:
                 raise ValueError(f"{name} must be finite and non-negative; got {value!r}")
 
 
+#: One profile per included GFW gear class (the ADR-0009 seam). Every figure
+#: is citable; the exact computation of the derived widths is in ADR-0012.
+DEFAULT_GEAR_PROFILES: dict[str, GearProfile] = {
+    "trawlers": GearProfile(
+        key="trawlers",
+        gear_width_m=77.28,
+        towing_speed_knots=3.0,
+        penetration_depth_m=0.0244,
+        provenance=(
+            "Treated as otter trawls — Sala 2021's own default for unclassified "
+            "vessels; per ADR-0009 the GFW class also contains midwater trawlers, "
+            "so figures derived from it overstate bottom contact where midwater "
+            "effort is common and must carry the honest label. Width 77.28 m: "
+            "effort-weighted mean over GFW fishing-vessels-v3 (year 2012, 5,654 "
+            "vessels) of Sala 2021's Eigaard et al. 2016 relationship "
+            "W = 10.6608 x KW^0.2921 (ADR-0012). Speed 3.0 kn: midpoint of Sala "
+            "2021's 2-4 kn otter-trawl plausibility range (from Eigaard 2016). "
+            "Penetration 2.44 cm: Hiddink et al. 2017 via Sala 2021 / Atwood 2024."
+        ),
+    ),
+    "dredge_fishing": GearProfile(
+        key="dredge_fishing",
+        gear_width_m=26.02,
+        towing_speed_knots=2.25,
+        penetration_depth_m=0.0547,
+        provenance=(
+            "Treated as towed (non-hydraulic) dredges, per ADR-0009. Width "
+            "26.02 m: effort-weighted mean over GFW fishing-vessels-v3 (year "
+            "2012, 105 vessels) of Sala 2021's Eigaard et al. 2016 relationship "
+            "W = 0.3142 x LOA^1.2454 (ADR-0012). Speed 2.25 kn: midpoint of Sala "
+            "2021's 2-2.5 kn dredge plausibility range (from Eigaard 2016). "
+            "Penetration 5.47 cm: Hiddink et al. 2017 via Sala 2021 / Atwood 2024."
+        ),
+    ),
+}
+
+
 def swept_area_m2(fishing_hours: float, profile: GearProfile) -> float:
     """Seabed area (m^2) swept by ``fishing_hours`` of towing under ``profile``.
 

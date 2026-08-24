@@ -18,6 +18,7 @@ from hypothesis import strategies as st
 
 from carbon_atlas.carbon.density import CarbonDensity
 from carbon_atlas.disturbance import (
+    DEFAULT_GEAR_PROFILES,
     GearProfile,
     disturbed_carbon_kg,
     swept_area_m2,
@@ -108,6 +109,55 @@ def test_physically_impossible_gear_profiles_cannot_be_constructed(kwargs):
         _profile(**kwargs)
 
 
+# --- The default profiles (ADR-0012) ------------------------------------------
+# One profile per included GFW gear class (the ADR-0009 seam), every number
+# citable: penetration depths quoted from Hiddink 2017 via Sala/Atwood; widths
+# computed with Sala's own Eigaard relationships, effort-weighted over GFW's
+# 2012 vessel table; speeds the midpoints of Sala's per-gear plausibility
+# filters. Exact figures and computation: ADR-0012 / SCIENCE_BASIS.md.
+
+
+def test_there_is_a_default_profile_for_each_included_gear_class():
+    """The profile keys are exactly the ADR-0009 inclusion set — a gear the
+    effort layer includes but the model cannot price would be a silent hole."""
+    assert set(DEFAULT_GEAR_PROFILES) == {"trawlers", "dredge_fishing"}
+
+
+def test_the_trawlers_profile_pins_the_derived_parameters():
+    """Otter-trawl treatment (Sala's own default for unclassified vessels):
+    Hiddink's 2.44 cm penetration, 3.0 kn (midpoint of Sala's 2-4 kn otter
+    filter), and the 77.28 m effort-weighted width computed from GFW's 2012
+    vessel table with Sala's W = 10.6608 x KW^0.2921."""
+    profile = DEFAULT_GEAR_PROFILES["trawlers"]
+
+    assert profile.penetration_depth_m == 0.0244
+    assert profile.towing_speed_knots == 3.0
+    assert math.isclose(profile.gear_width_m, 77.28, rel_tol=1e-9)
+
+
+def test_the_dredge_profile_pins_the_derived_parameters():
+    """Towed-dredge treatment: Hiddink's 5.47 cm penetration, 2.25 kn
+    (midpoint of Sala's 2-2.5 kn dredge filter), and the 26.02 m
+    effort-weighted width from Sala's W = 0.3142 x LOA^1.2454."""
+    profile = DEFAULT_GEAR_PROFILES["dredge_fishing"]
+
+    assert profile.penetration_depth_m == 0.0547
+    assert profile.towing_speed_knots == 2.25
+    assert math.isclose(profile.gear_width_m, 26.02, rel_tol=1e-9)
+
+
+def test_every_default_profile_carries_its_provenance():
+    """A parameter without its source is not usable science: each profile
+    names its sources, and the trawlers profile discloses the midwater
+    caveat (ADR-0009) — the honest label follows the number everywhere."""
+    for profile in DEFAULT_GEAR_PROFILES.values():
+        provenance = profile.provenance.lower()
+        assert "sala" in provenance
+        assert "eigaard" in provenance
+        assert "hiddink" in provenance
+    assert "midwater" in DEFAULT_GEAR_PROFILES["trawlers"].provenance.lower()
+
+
 _hours = st.floats(min_value=0.0, max_value=1e5, allow_nan=False, allow_infinity=False)
 
 
@@ -132,17 +182,22 @@ def test_disturbed_mass_is_linear_in_effort(hours):
     mean=st.floats(min_value=0.0, max_value=100.0, allow_nan=False, allow_infinity=False),
     unc=st.floats(min_value=0.0, max_value=100.0, allow_nan=False, allow_infinity=False),
 )
-def test_disturbed_mass_is_never_negative_and_never_loses_its_uncertainty(hours, mean, unc):
+def test_disturbed_mass_scales_the_uncertainty_by_exactly_the_disturbed_volume(hours, mean, unc):
     """Property: over the whole physical input domain the mass and its
-    uncertainty are non-negative, and a nonzero density uncertainty with
-    nonzero effort yields a nonzero mass uncertainty — it cannot vanish."""
+    uncertainty are non-negative, and the uncertainty is EXACTLY the density
+    uncertainty times the disturbed volume — the same factor as the mean, so
+    the pair can never drift apart. (Hypothesis found that a naive 'nonzero
+    in, nonzero out' claim is false in IEEE floats: ~5e-184 x ~5e-184
+    underflows to 0.0 — so the pinned claim is the algebraic identity.)"""
+    profile = _profile()
     mass = disturbed_carbon_kg(
         fishing_hours=hours,
-        profile=_profile(),
+        profile=profile,
         density=CarbonDensity(mean=mean, uncertainty=unc),
     )
 
+    volume = swept_area_m2(hours, profile) * profile.penetration_depth_m
     assert mass.mean_kg >= 0.0
     assert mass.uncertainty_kg >= 0.0
-    if hours > 0.0 and unc > 0.0:
-        assert mass.uncertainty_kg > 0.0
+    assert mass.mean_kg == volume * mean
+    assert mass.uncertainty_kg == volume * unc
