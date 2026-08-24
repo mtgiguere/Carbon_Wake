@@ -48,23 +48,34 @@ _SCHEMA = Path(__file__).with_name("schema.sql")
 # stalled; and the stage keeps geometry construction in SQL (ADR-0010).
 _CREATE_STAGE = (
     "CREATE TEMP TABLE _overlap_cell_stage (lat_index integer, lon_index integer,"
-    " fishing_hours double precision, oc_density_mean double precision,"
-    " oc_density_uncertainty double precision)"
+    " fishing_hours_trawlers double precision,"
+    " fishing_hours_dredge_fishing double precision,"
+    " oc_density_mean double precision, oc_density_uncertainty double precision)"
 )
 _COPY_STAGE = (
-    "COPY _overlap_cell_stage (lat_index, lon_index, fishing_hours,"
-    " oc_density_mean, oc_density_uncertainty) FROM STDIN"
+    "COPY _overlap_cell_stage (lat_index, lon_index, fishing_hours_trawlers,"
+    " fishing_hours_dredge_fishing, oc_density_mean, oc_density_uncertainty) FROM STDIN"
 )
 _INSERT_FROM_STAGE = (
-    "INSERT INTO overlap_cell (run_id, lat_index, lon_index, fishing_hours,"
-    " oc_density_mean, oc_density_uncertainty, geom)"
-    " SELECT %s, lat_index, lon_index, fishing_hours, oc_density_mean,"
-    " oc_density_uncertainty,"
+    "INSERT INTO overlap_cell (run_id, lat_index, lon_index, fishing_hours_trawlers,"
+    " fishing_hours_dredge_fishing, oc_density_mean, oc_density_uncertainty, geom)"
+    " SELECT %s, lat_index, lon_index, fishing_hours_trawlers,"
+    " fishing_hours_dredge_fishing, oc_density_mean, oc_density_uncertainty,"
     " ST_MakeEnvelope(lon_index / 100.0, lat_index / 100.0,"
     " (lon_index + 1) / 100.0, (lat_index + 1) / 100.0, 4326)"
     " FROM _overlap_cell_stage"
 )
 _DROP_STAGE = "DROP TABLE _overlap_cell_stage"
+
+
+def _by_gear(trawl_hours: float | None, dredge_hours: float | None) -> dict[str, float]:
+    """Per-gear hours from the two gear columns, NULLs (no record) omitted."""
+    by_gear = {}
+    if trawl_hours is not None:
+        by_gear["trawlers"] = trawl_hours
+    if dredge_hours is not None:
+        by_gear["dredge_fishing"] = dredge_hours
+    return by_gear
 
 
 def apply_schema(conn: psycopg.Connection) -> None:
@@ -95,12 +106,18 @@ def store_overlap(
         ),
     ).fetchone()[0]
 
+    def gear_columns(by_gear: dict[str, float]) -> tuple[float | None, float | None]:
+        # The stage's per-gear columns mirror the ADR-0009 inclusion set; a
+        # gear the aggregation never saw stays NULL (no record != zero hours).
+        return by_gear.get("trawlers"), by_gear.get("dredge_fishing")
+
     rows = [
-        (t.cell.lat_index, t.cell.lon_index, t.fishing_hours, t.carbon.mean, t.carbon.uncertainty)
+        (t.cell.lat_index, t.cell.lon_index, *gear_columns(t.fishing_hours_by_gear),
+         t.carbon.mean, t.carbon.uncertainty)
         for t in result.trawled
     ] + [
-        (cell.lat_index, cell.lon_index, hours, None, None)
-        for cell, hours in result.unmapped_effort.items()
+        (cell.lat_index, cell.lon_index, *gear_columns(by_gear), None, None)
+        for cell, by_gear in result.unmapped_effort.items()
     ]
     if rows:
         with conn.cursor() as cur:
@@ -141,7 +158,8 @@ def load_overlap(conn: psycopg.Connection, run_id: int) -> OverlapResult:
         raise KeyError(f"no etl_run with id {run_id}")
 
     rows = conn.execute(
-        "SELECT lat_index, lon_index, fishing_hours, oc_density_mean, oc_density_uncertainty"
+        "SELECT lat_index, lon_index, fishing_hours_trawlers, fishing_hours_dredge_fishing,"
+        " oc_density_mean, oc_density_uncertainty"
         " FROM overlap_cell WHERE run_id = %s ORDER BY lat_index, lon_index",
         (run_id,),
     ).fetchall()
@@ -149,15 +167,15 @@ def load_overlap(conn: psycopg.Connection, run_id: int) -> OverlapResult:
     trawled = tuple(
         TrawledCell(
             cell=GridCell(lat_index=lat, lon_index=lon),
-            fishing_hours=hours,
+            fishing_hours_by_gear=_by_gear(trawl_hours, dredge_hours),
             carbon=CarbonDensity(mean=mean, uncertainty=uncertainty),
         )
-        for lat, lon, hours, mean, uncertainty in rows
+        for lat, lon, trawl_hours, dredge_hours, mean, uncertainty in rows
         if mean is not None
     )
     unmapped = {
-        GridCell(lat_index=lat, lon_index=lon): hours
-        for lat, lon, hours, mean, _ in rows
+        GridCell(lat_index=lat, lon_index=lon): _by_gear(trawl_hours, dredge_hours)
+        for lat, lon, trawl_hours, dredge_hours, mean, _ in rows
         if mean is None
     }
     return OverlapResult(trawled=trawled, unmapped_effort=unmapped)
@@ -175,7 +193,8 @@ def trawled_cells_intersecting(
     """The run's mapped cells whose polygons intersect a WGS84 bbox — the seed
     of every future map-tile and region query, answered by the GiST index."""
     rows = conn.execute(
-        "SELECT lat_index, lon_index, fishing_hours, oc_density_mean, oc_density_uncertainty"
+        "SELECT lat_index, lon_index, fishing_hours_trawlers, fishing_hours_dredge_fishing,"
+        " oc_density_mean, oc_density_uncertainty"
         " FROM overlap_cell"
         " WHERE run_id = %s AND oc_density_mean IS NOT NULL"
         " AND ST_Intersects(geom, ST_MakeEnvelope(%s, %s, %s, %s, 4326))"
@@ -185,8 +204,8 @@ def trawled_cells_intersecting(
     return tuple(
         TrawledCell(
             cell=GridCell(lat_index=lat, lon_index=lon),
-            fishing_hours=hours,
+            fishing_hours_by_gear=_by_gear(trawl_hours, dredge_hours),
             carbon=CarbonDensity(mean=mean, uncertainty=uncertainty),
         )
-        for lat, lon, hours, mean, uncertainty in rows
+        for lat, lon, trawl_hours, dredge_hours, mean, uncertainty in rows
     )

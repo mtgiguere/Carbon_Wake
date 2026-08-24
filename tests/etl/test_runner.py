@@ -63,9 +63,17 @@ def test_the_runner_turns_a_zip_into_a_stored_ground_truth_run(conn, year_zip):
     assert math.isclose(result.unmapped_fishing_hours, 168.4296, rel_tol=1e-9)
     assert all(t.cell.lat_index > 0 for t in result.trawled)  # nothing southern survived
 
-    busiest = max(result.trawled, key=lambda t: t.fishing_hours)
+    # Gear identity survives storage: all 18.3979 dredge hours in this region
+    # sit on unmapped nearshore cells (independent recount, 2026-08-24).
+    unmapped_dredge = sum(
+        by_gear.get("dredge_fishing", 0.0) for by_gear in result.unmapped_effort.values()
+    )
+    assert math.isclose(unmapped_dredge, 18.3979, rel_tol=1e-9)
+
+    busiest = max(result.trawled, key=lambda t: t.total_fishing_hours)
     assert busiest.cell == GridCell(lat_index=5390, lon_index=764)
-    assert math.isclose(busiest.fishing_hours, 15.0057, rel_tol=1e-9)
+    assert set(busiest.fishing_hours_by_gear) == {"trawlers"}
+    assert math.isclose(busiest.fishing_hours_by_gear["trawlers"], 15.0057, rel_tol=1e-9)
     assert math.isclose(busiest.carbon.mean, 1.5652642, rel_tol=1e-6)
     assert math.isclose(busiest.carbon.uncertainty, 2.4579988, rel_tol=1e-6)
 

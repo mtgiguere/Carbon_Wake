@@ -32,16 +32,18 @@ _RESULT = OverlapResult(
     trawled=(
         TrawledCell(
             cell=GridCell(lat_index=5390, lon_index=764),
-            fishing_hours=15.0057,
+            fishing_hours_by_gear={"trawlers": 15.0057, "dredge_fishing": 0.5},
             carbon=CarbonDensity(mean=1.5652642, uncertainty=2.4579988),
         ),
+        # A dredge-only cell with a recorded zero: 0.0 hours is DATA (looked,
+        # found none) and must survive the round trip as 0.0, never as absent.
         TrawledCell(
             cell=GridCell(lat_index=5391, lon_index=760),
-            fishing_hours=0.0,
+            fishing_hours_by_gear={"dredge_fishing": 0.0},
             carbon=CarbonDensity(mean=0.0, uncertainty=0.7),
         ),
     ),
-    unmapped_effort={GridCell(lat_index=5366, lon_index=748): 7.25},
+    unmapped_effort={GridCell(lat_index=5366, lon_index=748): {"trawlers": 7.25}},
 )
 
 
@@ -83,7 +85,7 @@ def test_each_run_records_its_provenance_including_the_honest_label(conn):
     assert "midwater" in row[2].lower()
     assert row[3] == 2
     assert row[4] == 1
-    assert math.isclose(row[5], 15.0057, rel_tol=1e-12)
+    assert math.isclose(row[5], 15.5057, rel_tol=1e-12)  # 15.0057 trawl + 0.5 dredge
     assert math.isclose(row[6], 7.25, rel_tol=1e-12)
 
 
@@ -116,7 +118,7 @@ def test_runs_list_newest_first_with_full_provenance(conn):
     assert newest.carbon_source == "c2"
     assert "midwater" in newest.effort_layer_label.lower()
     assert (newest.cells_mapped, newest.cells_unmapped) == (2, 1)
-    assert math.isclose(newest.fishing_hours_mapped, 15.0057, rel_tol=1e-12)
+    assert math.isclose(newest.fishing_hours_mapped, 15.5057, rel_tol=1e-12)
     assert math.isclose(newest.fishing_hours_unmapped, 7.25, rel_tol=1e-12)
     assert newest.created_at is not None
 
@@ -151,8 +153,8 @@ def test_the_database_itself_rejects_half_a_carbon_pair(conn):
 
     with pytest.raises(psycopg.errors.CheckViolation):
         conn.execute(
-            "INSERT INTO overlap_cell (run_id, lat_index, lon_index, fishing_hours,"
-            " oc_density_mean, oc_density_uncertainty, geom)"
+            "INSERT INTO overlap_cell (run_id, lat_index, lon_index,"
+            " fishing_hours_trawlers, oc_density_mean, oc_density_uncertainty, geom)"
             " VALUES (%s, 5400, 700, 1.0, 2.5, NULL,"
             " ST_MakeEnvelope(7.00, 54.00, 7.01, 54.01, 4326))",
             (run_id,),
@@ -160,17 +162,48 @@ def test_the_database_itself_rejects_half_a_carbon_pair(conn):
 
 
 def test_the_database_itself_rejects_negative_fishing_hours(conn):
-    """Same last-line defense for the effort side."""
+    """Same last-line defense for the effort side, per gear column."""
     run_id = _store(conn)
 
     with pytest.raises(psycopg.errors.CheckViolation):
         conn.execute(
-            "INSERT INTO overlap_cell (run_id, lat_index, lon_index, fishing_hours,"
-            " oc_density_mean, oc_density_uncertainty, geom)"
+            "INSERT INTO overlap_cell (run_id, lat_index, lon_index,"
+            " fishing_hours_trawlers, oc_density_mean, oc_density_uncertainty, geom)"
             " VALUES (%s, 5400, 700, -0.1, NULL, NULL,"
             " ST_MakeEnvelope(7.00, 54.00, 7.01, 54.01, 4326))",
             (run_id,),
         )
+
+
+def test_the_database_itself_rejects_a_cell_with_no_gear_at_all(conn):
+    """A row where every per-gear column is NULL claims effort happened while
+    recording none of it — not a cell, a bug. Refused by the schema."""
+    run_id = _store(conn)
+
+    with pytest.raises(psycopg.errors.CheckViolation):
+        conn.execute(
+            "INSERT INTO overlap_cell (run_id, lat_index, lon_index,"
+            " fishing_hours_trawlers, fishing_hours_dredge_fishing,"
+            " oc_density_mean, oc_density_uncertainty, geom)"
+            " VALUES (%s, 5400, 700, NULL, NULL, NULL, NULL,"
+            " ST_MakeEnvelope(7.00, 54.00, 7.01, 54.01, 4326))",
+            (run_id,),
+        )
+
+
+def test_the_total_hours_column_is_generated_and_cannot_drift(conn):
+    """`fishing_hours` is a GENERATED column: the database computes the total
+    from the per-gear columns (NULL counting as 0), so no writer can ever
+    store a total that disagrees with its parts."""
+    run_id = _store(conn)
+
+    rows = conn.execute(
+        "SELECT fishing_hours_trawlers, fishing_hours_dredge_fishing, fishing_hours"
+        " FROM overlap_cell WHERE run_id = %s ORDER BY lat_index",
+        (run_id,),
+    ).fetchall()
+
+    assert rows == [(7.25, None, 7.25), (15.0057, 0.5, 15.5057), (None, 0.0, 0.0)]
 
 
 def test_spatial_query_finds_the_cells_a_bbox_intersects(conn):
