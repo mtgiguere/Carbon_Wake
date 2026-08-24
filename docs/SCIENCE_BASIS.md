@@ -109,7 +109,90 @@ uncertainty is the honest representation.
 
 ---
 
-## Verification flags (read before trusting any number here)
+## The disturbed-carbon model (researched 2026-08-24 for the v1 estimate layer)
+
+The presets above convert *disturbed carbon mass* to CO2. This section is the
+provenance for how disturbed mass itself is computed from effort + carbon data.
+
+### Sala 2021's own chain [VERIFIED — publisher PDF via Archimer, 82604.pdf]
+
+- Per-pixel loss fraction: `Ia_i = SVR_i · p_crd_i · p_lab_i · (1 − e^(−k_i·t))`,
+  t = 1 year; `p_crd` (fraction resettling in the pixel) constant at **0.87**.
+- `SVR_i = Σ_g SAR_i,g × p_depth_g` — swept area ratio times gear penetration
+  depth, applied to the carbon in the **first meter** of sediment (`c_i0`).
+- `SAR_i,g = Σ_v TD_i,v × W_v / A_i` — trawled distance (AIS speed × time,
+  GFW 2016–2019) times per-vessel gear width over pixel area.
+- Gear widths from Eigaard et al. 2016 vessel-size relationships, quoted
+  verbatim from Sala's methods:
+  - towed & hydraulic dredges: `W = 0.3142 × LOA^1.2454` (LOA in m),
+  - otter trawls: `W = 10.6608 × KW^0.2921` (engine power in kW),
+  - beam trawls: `W = 0.6601 × KW^0.5078`.
+- Speed/depth plausibility filters per gear (from Eigaard): otter 2–4 kn,
+  beam 2.5–7 kn, dredges 2–2.5 kn.
+- Penetration depths from Hiddink et al. 2017 (PNAS 10.1073/pnas.1618858114):
+  **otter 2.44 cm, beam 2.72 cm, towed dredge 5.47 cm, hydraulic dredge
+  16.11 cm** [VERIFIED in Sala's methods AND restated in Atwood 2024's
+  open-access methods; Hiddink's own PDF not fetched].
+- Vessels without official gear classification were classified as **otter
+  trawls** ("the most common type of bottom trawlers in the ocean");
+  registry-identified midwater trawlers were excluded [VERIFIED quote].
+- **The 29.7% ties in here [VERIFIED]:** "The average remineralization
+  efficiency of disturbed carbon—estimated as the mean across pixel level
+  remineralization rates—is 29.7%." I.e. it is the mean of
+  `p_crd · p_lab · (1 − e^(−k))` — the fraction of *disturbed* carbon
+  remineralized, resettlement included. Our preset semantics
+  (`remineralization_fraction` of disturbed mass) match it exactly; no extra
+  0.87 factor may be applied on top.
+
+### What the Trawl Carbon Atlas v1 encodes (and how it deviates)
+
+`disturbed_carbon_mass = fishing_hours × towing_speed × gear_width ×
+penetration_depth × OC_density`, per cell, with these deviations from Sala,
+each one honest about what our data can support:
+
+1. **Fleet-average gear width instead of per-vessel width.** GFW's fleet-daily
+   product has no vessel identities, so Sala's per-vessel `W_v` is replaced by
+   a class-average width: Sala's own Eigaard relationship evaluated at the
+   fleet-average vessel size computed from GFW's `fishing-vessels-v3.csv`
+   (the same dataset's vessel table). The averages used are recorded in
+   ADR-0012 with the exact computation.
+2. **GFW's "trawlers" class is treated as otter trawls** — Sala's own default
+   for unclassified vessels — and `dredge_fishing` as towed (non-hydraulic)
+   dredges. Consequence of ADR-0009: midwater trawlers are inside the class,
+   so v1 *overstates* swept bottom area where midwater effort is common; the
+   labeling requirement extends to any figure derived from it.
+3. **Regional surficial OC density instead of a global first-meter stock.**
+   Diesing 2021 provides kg/m³ density of *surface* sediments with per-pixel
+   uncertainty. Since gear penetrates 2–6 cm — within the surficial layer —
+   `swept_area × penetration_depth × density` needs no 1 m stock at all: the
+   volume disturbed is priced at the density of the sediment actually
+   penetrated. This is arguably *more* defensible regionally than the global
+   stock approach; it is still a deviation and is labeled as such.
+4. **Uncertainty propagated from the carbon layer only.** Width, speed, and
+   penetration depth carry real spread (Eigaard's SDs; Hiddink's ranges) that
+   v1 does NOT quantify — the disturbed mass inherits only the carbon
+   density's per-pixel uncertainty. Recorded as an explicit unquantified-
+   uncertainty caveat, not silently ignored.
+
+### Verification additions (2026-08-24)
+
+**Verified against primary full text:**
+- Sala 2021 methods: the `Ia` equation, p_crd = 0.87, SVR/SAR construction,
+  the three Eigaard width relationships, speed filters, penetration depths,
+  otter-trawl default for unclassified vessels, first-meter stock basis, the
+  29.7%-is-mean-pixel-efficiency sentence — Archimer publisher PDF.
+- Atwood 2024 restates SVR = SAR × penetration depth and the same four
+  penetration depths — Frontiers open access.
+- Eigaard et al. 2016 (ICES JMS 73:i27–i43, DOI 10.1093/icesjms/fsv099, open
+  PDF via DTU Orbit): Table 5 towing speeds (OT_DMF 3.1±0.2 kn, OT range
+  2.5–3.4 kn, TBB_DMF 5.2±1.3 kn, DRB_MOL 2.5±0.0 kn); otter-trawl affected
+  width "typically in the range of 25–250 m"; dredge widths 0.75–3 m per
+  dredge; hourly swept-area estimate ≈1.2 km²/h for OT Nephrops+mixed
+  demersal métier.
+
+**NOT verified from primary text:**
+- Hiddink et al. 2017's own PDF (penetration depths taken from Sala's and
+  Atwood's verbatim citations of it, plus secondary press coverage).
 
 **Verified against primary full text:**
 - Sala 2021 figures, 29.7% efficiency, λ=0.3, aqueous caveat — from the Archimer/Ifremer open-access PDF.
