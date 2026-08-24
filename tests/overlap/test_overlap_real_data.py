@@ -44,8 +44,28 @@ def test_a_real_year_of_effort_joins_against_real_carbon_to_ground_truth():
     assert math.isclose(result.trawled_fishing_hours, 139.7554, rel_tol=1e-9)
     assert math.isclose(result.unmapped_fishing_hours, 168.4296, rel_tol=1e-9)
 
-    busiest = max(result.trawled, key=lambda t: t.fishing_hours)
+    # Per-gear ground truth (recomputed independently 2026-08-24): on MAPPED
+    # cells every hour is trawlers; all 18.3979 dredge hours sit on unmapped
+    # nearshore cells (150.0317 trawler hours join them there). 33 mapped
+    # cells carry dredge records (all 0.0 h): 22 alongside trawlers, 11 alone.
+    mapped_by_gear: dict[str, float] = {}
+    for t in result.trawled:
+        for gear, hours in t.fishing_hours_by_gear.items():
+            mapped_by_gear[gear] = mapped_by_gear.get(gear, 0.0) + hours
+    assert math.isclose(mapped_by_gear["trawlers"], 139.7554, rel_tol=1e-9)
+    assert math.isclose(mapped_by_gear["dredge_fishing"], 0.0, abs_tol=1e-12)
+    assert sum(1 for t in result.trawled if "dredge_fishing" in t.fishing_hours_by_gear) == 33
+
+    unmapped_by_gear: dict[str, float] = {}
+    for by_gear in result.unmapped_effort.values():
+        for gear, hours in by_gear.items():
+            unmapped_by_gear[gear] = unmapped_by_gear.get(gear, 0.0) + hours
+    assert math.isclose(unmapped_by_gear["trawlers"], 150.0317, rel_tol=1e-9)
+    assert math.isclose(unmapped_by_gear["dredge_fishing"], 18.3979, rel_tol=1e-9)
+
+    busiest = max(result.trawled, key=lambda t: t.total_fishing_hours)
     assert busiest.cell == GridCell(lat_index=5390, lon_index=764)
-    assert math.isclose(busiest.fishing_hours, 15.0057, rel_tol=1e-9)
+    assert set(busiest.fishing_hours_by_gear) == {"trawlers"}
+    assert math.isclose(busiest.fishing_hours_by_gear["trawlers"], 15.0057, rel_tol=1e-9)
     assert math.isclose(busiest.carbon.mean, 1.5652642, rel_tol=1e-6)
     assert math.isclose(busiest.carbon.uncertainty, 2.4579988, rel_tol=1e-6)
