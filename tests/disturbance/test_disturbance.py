@@ -19,6 +19,7 @@ from hypothesis import strategies as st
 from carbon_atlas.carbon.density import CarbonDensity
 from carbon_atlas.disturbance import (
     DEFAULT_GEAR_PROFILES,
+    DisturbedCarbon,
     GearProfile,
     disturbed_carbon_kg,
     swept_area_m2,
@@ -107,6 +108,18 @@ def test_physically_impossible_gear_profiles_cannot_be_constructed(kwargs):
     dredges) is a parameter error, not a gear. Reject at construction."""
     with pytest.raises(ValueError):
         _profile(**kwargs)
+
+
+@pytest.mark.parametrize(
+    ("mean_kg", "uncertainty_kg"),
+    [(-0.1, 1.0), (1.0, -0.1), (float("nan"), 1.0), (1.0, float("inf"))],
+)
+def test_a_corrupt_disturbed_mass_cannot_be_constructed(mean_kg, uncertainty_kg):
+    """Same discipline as CarbonDensity, one derivation later: a negative or
+    non-finite mass (or uncertainty) is impossible to build, so nothing
+    downstream ever has to check."""
+    with pytest.raises(ValueError):
+        DisturbedCarbon(mean_kg=mean_kg, uncertainty_kg=uncertainty_kg)
 
 
 # --- The default profiles (ADR-0012) ------------------------------------------

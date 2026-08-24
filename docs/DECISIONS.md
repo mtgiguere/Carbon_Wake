@@ -258,3 +258,57 @@ wrong — its tests are about HTTP contracts (shapes, errors, honesty labels),
 not re-proofs of SQL. (b) When the disturbed-carbon model lands, estimate
 endpoints get added alongside it, citations first. (c) GeoDjango can still be
 adopted later by its own ADR if tile serving demands it.
+
+---
+
+## 2026-08-24 — ADR-0012: The v1 disturbed-carbon model — Sala's chain, honestly downscaled
+
+**Context.** The reactivity presets convert *disturbed carbon mass* to CO2;
+nothing computed that mass. Sala 2021's methods (now verified from the
+publisher PDF — see SCIENCE_BASIS.md "The disturbed-carbon model") define the
+chain: AIS effort → swept area (distance × gear width) → swept volume
+(× penetration depth) → disturbed carbon (× carbon stock).
+
+**Decision.** `carbon_atlas.disturbance` (pure) encodes
+`hours × speed × width × penetration_depth × OC_density` per cell, with every
+parameter travelling in a `GearProfile` that carries its provenance, and the
+mass inheriting the carbon density's per-pixel uncertainty exactly. The
+default profiles, one per ADR-0009 gear class:
+
+| | trawlers (as otter trawls) | dredge_fishing (as towed dredges) |
+|---|---|---|
+| width | **77.28 m** | **26.02 m** |
+| speed | 3.0 kn | 2.25 kn |
+| penetration | 2.44 cm | 5.47 cm |
+
+Width computation: Sala's own Eigaard 2016 relationships
+(`W = 10.6608·KW^0.2921` for otter trawls, `W = 0.3142·LOA^1.2454` for
+dredges) evaluated **per vessel** in GFW's `fishing-vessels-v3.csv` (year
+2012: 5,654 trawlers with engine power, 105 dredgers with length), then
+**weighted by each vessel's fishing hours** — the width that represents an
+hour of effort, avoiding the Jensen error of plugging an average vessel into
+a nonlinear formula. Speeds are the midpoints of Sala's per-gear plausibility
+ranges (otter 2–4 kn, dredges 2–2.5 kn); penetration depths are Hiddink
+2017's means as quoted verbatim by Sala 2021 and Atwood 2024.
+
+Deviations from Sala, each recorded in SCIENCE_BASIS.md: fleet-average width
+instead of per-vessel (fleet-daily effort has no vessel identities); GFW
+"trawlers" treated as otter trawls (Sala's own default for unclassified
+vessels — with ADR-0009's midwater caveat attached to every derived figure);
+regional surficial OC density instead of a global first-meter stock (gear
+penetrates 2–6 cm, within the surficial layer, so the disturbed volume is
+priced at the density of the sediment actually penetrated); and uncertainty
+propagated from the carbon layer only (gear-parameter spread is real but
+unquantified in v1 — stated, not ignored).
+
+**Consequences.** (a) The chain to CO2 is now closable with zero new science:
+`disturbed_mass × preset.remineralization_fraction × 44/12` — Sala's 29.7% is
+verified to be the mean pixel-level efficiency of *disturbed* carbon
+(resettlement included), so no extra 0.87 factor may be applied on top.
+(b) **Blocking gap for the wiring slice:** the ETL currently SUMS trawler and
+dredge hours into one per-cell total (ADR-0009's seam feeds aggregation), but
+this model prices the two classes differently — per-gear aggregation and
+storage must land before any cell-level CO2 estimate is computed. (c) The
+2012-weighted widths are period-appropriate for the stored 2012 run; a run
+over another year should recompute them from that year's vessel table (the
+computation is one documented script pass).
