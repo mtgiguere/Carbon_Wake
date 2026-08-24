@@ -18,6 +18,8 @@ authors = [{ name = "Matt" }]
 dependencies = [
     "rasterio>=1.5",       # arrived with carbon_atlas.ingest.diesing (GeoTIFF reading)
     "psycopg[binary]>=3.2",  # arrived with carbon_atlas.db (PostGIS store, ADR-0010)
+    "django>=5.1",           # arrived with carbon_atlas.web (v1 API, ADR-0011)
+    "djangorestframework>=3.15",  # arrived with carbon_atlas.api (v1 API, ADR-0011)
 ]
 
 [project.optional-dependencies]
