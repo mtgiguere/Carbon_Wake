@@ -4,8 +4,11 @@ A public, interactive tool mapping the overlap between industrial bottom-trawlin
 grounds and seafloor organic-carbon deposition zones — visualizing a **live,
 disputed scientific question** rather than presenting a single settled number.
 
-See [`PROJECT_SPEC.md`](PROJECT_SPEC.md) for the full vision and
-[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for how it's built.
+See [`PROJECT_SPEC.md`](PROJECT_SPEC.md) for the full vision,
+[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for how it's built, and
+[`docs/RIGOR.md`](docs/RIGOR.md) for how the project earns — and audits — its
+own trust (verification discipline, structural honesty rules, the incident
+log, and the current scientific status including known flaws).
 
 ## Project principles (read before contributing)
 
@@ -24,10 +27,23 @@ up cold in two years and extend without fear.** In priority order:
    estimates and their range. It never launders a disputed figure into a
    confident one.
 
-## Status
+## Status (2026-08-24)
 
-Bootstrapping. First vertical slice: the reactivity-preset CO2 calculation core
-(pure math), built strict-TDD. Region-first scope (North Sea) for v1.
+The full data spine is working end to end for the v1 region (North Sea):
+a year of real Global Fishing Watch effort joins real Diesing 2021 seafloor
+carbon in PostGIS, and a read-only API serves the overlap plus the disputed
+CO2 estimate as a **cited, attributed range with uncertainty** — for 2012,
+spanning the published 1000× disagreement (Hiddink to Sala), with the model's
+caveats embedded in every payload.
+
+**Scientific status: pipeline-proof, not publication-grade.** The v1 model has
+a known saturation flaw that overstates disturbed carbon in heavily trawled
+cells; it is disclosed in every served estimate and its fix is the next slice.
+See `docs/RIGOR.md` and `docs/SCIENCE_BASIS.md` ("Known limitations") before
+citing any number.
+
+Next: the bounded saturation model, then the storytelling spike
+(`docs/SHOWCASE_SPIKE.md`), then the frontend map.
 
 ## Getting started (dev)
 

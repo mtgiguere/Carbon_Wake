@@ -86,6 +86,21 @@ def test_zero_disturbance_is_a_valid_all_zero_estimate():
         assert entry.aqueous.uncertainty_kg == 0.0
 
 
+def test_the_caveats_disclose_the_known_saturation_overstatement():
+    """The 2026-08-24 retrospective identified a real model flaw: disturbed
+    carbon is linear in effort with NO saturation, so heavily trawled cells
+    (swept-area ratios in the hundreds) count the same sediment many times
+    over and the totals are OVERSTATED. Until the bounded model lands, every
+    served estimate must say so — a known flaw disclosed is rigor; a known
+    flaw omitted is the exact dishonesty this project exists to avoid."""
+    from carbon_atlas.estimates import ESTIMATE_CAVEATS
+
+    text = " ".join(ESTIMATE_CAVEATS).lower()
+
+    assert "saturation" in text
+    assert "overstate" in text
+
+
 @pytest.mark.parametrize(
     ("mean_kg", "uncertainty_kg"),
     [(-0.1, 1.0), (1.0, -0.1), (float("nan"), 1.0), (1.0, float("inf"))],
