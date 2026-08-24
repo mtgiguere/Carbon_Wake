@@ -181,6 +181,54 @@ each one honest about what our data can support:
    quadrature would claim an independence we have not established and would
    understate the band.
 
+### Known limitations of the v1 derived layer (retrospective, 2026-08-24)
+
+The encoding of the published science above is verified; the *derived* layer —
+what we compute on top of it — has known weaknesses, ranked by severity. Every
+served estimate carries these as caveats (`ESTIMATE_CAVEATS`); this is the
+fuller record.
+
+1. **No saturation — the model overstates disturbed carbon in hotspots, and
+   this one requires a FIX, not a caveat.** Disturbed mass is linear in
+   fishing hours, but a 0.01° cell holds a finite amount of sediment.
+   Concrete case from the real 2012 run: the busiest Dutch-delta cell logged
+   427.6 h, which at 77.28 m × 3.0 kn sweeps ≈184 km² inside a ≈0.72 km² cell
+   — a swept-area ratio of ≈255. The linear model "disturbs" the same top
+   2.44 cm of sediment ~255 times and counts it every time. Sala's framework
+   treats the disturbed quantity as a *fraction* of a pixel's carbon
+   (implicitly bounded); our per-cell linearity is not bounded. Consequence:
+   the current regional totals (e.g. 2012's 12.5 Mt disturbed OC) are
+   **inflated by an unquantified but potentially large factor**, concentrated
+   in heavily trawled cells. Scheduled fix: a bounded per-cell form (cap at
+   the cell's penetrated volume, or a first-pass-depletion form such as
+   1 − e^(−SAR)), its own SCIENCE_BASIS pass and ADR, then a rerun to report
+   how far the headline moves. Until then: figures are pipeline-proof, not
+   publication-grade.
+2. **The headline is a composition Sala never published.** We apply Sala's
+   29.7% mean efficiency to a disturbed mass computed differently from his
+   (regional surficial density, fleet-average widths, no midwater exclusion).
+   The honest description is "Sala's assumptions transplanted onto regional
+   data", never "Sala's estimate for the North Sea".
+3. **Midwater contamination is material here.** The North Sea hosts
+   significant midwater trawling (herring, mackerel); ADR-0009's as-published
+   gear classes therefore overstate bottom contact non-trivially in some
+   areas. The registry cross-reference (Sala's own method) remains the
+   scheduled remedy.
+4. **The uncertainty band is not a confidence interval.** ±7.2 Mt is the
+   linear (fully correlated) propagation of Diesing's per-pixel total
+   uncertainty through the chain — an indicative band with a stated
+   convention, not a statistical CI. Gear-parameter spread (width, speed,
+   penetration) is real and unquantified in v1.
+5. **2012 AIS coverage undercounts effort** (pre-2017 coverage is thin and
+   uneven), so the effort side is biased LOW for that year even as the
+   saturation flaw biases disturbed carbon HIGH — the two do not cancel in
+   any knowable way.
+
+One genuine strength worth stating alongside: pricing the disturbed volume at
+Diesing's *measured surficial* density (the sediment the gear actually
+penetrates, with per-pixel uncertainty) is arguably more defensible regionally
+than Sala's global first-meter stock.
+
 ### Verification additions (2026-08-24)
 
 **Verified against primary full text:**
