@@ -7,6 +7,8 @@ totals). Cell geometry is built in SQL from the integer cell indices, so the
 database holds real WGS84 polygons a GiST index can do spatial work on.
 """
 
+from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 
 import psycopg
@@ -15,6 +17,28 @@ from carbon_atlas.carbon.density import CarbonDensity
 from carbon_atlas.effort.gears import EFFORT_LAYER_LABEL
 from carbon_atlas.effort.grid import GridCell
 from carbon_atlas.overlap import OverlapResult, TrawledCell
+
+
+@dataclass(frozen=True)
+class RunRecord:
+    """One ETL run's provenance row, as stored."""
+
+    id: int
+    created_at: datetime
+    effort_source: str
+    carbon_source: str
+    effort_layer_label: str
+    cells_mapped: int
+    cells_unmapped: int
+    fishing_hours_mapped: float
+    fishing_hours_unmapped: float
+
+
+_SELECT_RUNS = (
+    "SELECT id, created_at, effort_source, carbon_source, effort_layer_label,"
+    " cells_mapped, cells_unmapped, fishing_hours_mapped, fishing_hours_unmapped"
+    " FROM etl_run"
+)
 
 _SCHEMA = Path(__file__).with_name("schema.sql")
 
@@ -89,6 +113,22 @@ def store_overlap(
             finally:
                 cur.execute(_DROP_STAGE)
     return run_id
+
+
+def list_runs(conn: psycopg.Connection) -> tuple[RunRecord, ...]:
+    """Every run's provenance record, newest first (the newest run is what
+    the map shows by default). No runs is a valid answer: an empty tuple."""
+    rows = conn.execute(_SELECT_RUNS + " ORDER BY id DESC").fetchall()
+    return tuple(RunRecord(*row) for row in rows)
+
+
+def get_run(conn: psycopg.Connection, run_id: int) -> RunRecord:
+    """One run's provenance record; unknown ids raise ``KeyError`` naming
+    themselves — the loud lookup an API 404 hangs off."""
+    row = conn.execute(_SELECT_RUNS + " WHERE id = %s", (run_id,)).fetchone()
+    if row is None:
+        raise KeyError(f"no etl_run with id {run_id}")
+    return RunRecord(*row)
 
 
 def load_overlap(conn: psycopg.Connection, run_id: int) -> OverlapResult:

@@ -128,6 +128,8 @@ tests/
   effort/                unit + property tests for the grid/aggregation pure core
   carbon/                unit + property tests for the carbon-quantity pure core
   overlap/               join contract tests + the real-data end-to-end milestone test
+  api/                   HTTP contract tests (shapes, errors, honesty labels) against a
+                         schema.sql-initialized Django test DB on the same PostGIS server
   ingest/                parser contract tests + @integration tests on real samples
   db/                    @integration tests against a real PostGIS (docker compose up -d;
                          a service container in CI) — the schema's constraints are the
@@ -160,7 +162,13 @@ suites grow, the fast unit run is `pytest -m "not integration and not visual"`.
    polygons; docker-compose.yml provides the database); and
    **carbon_atlas.etl.run_overlap_etl** — one call from year zip to stored
    run, scoped to the carbon dataset's own WGS84 envelope.
-4. Django + DRF API serving overlay + preset-driven estimates.
+4. **Django + DRF API** ← we are here. Done: the read-only v1 endpoints
+   (ADR-0011) — preset catalog, run provenance, bbox-scoped trawled cells as
+   GeoJSON — as a thin layer whose views call the tested store over the raw
+   psycopg connection (no ORM models for ETL tables, no GeoDjango).
+   Deliberately NOT served yet: CO2 estimates — they require a citable
+   disturbed-carbon model (gear penetration depth, swept-volume ratio) that
+   is its own SCIENCE_BASIS pass and ADR before any number crosses the wire.
 5. Django admin curation for sources/citations/confidence tiers.
 6. Frontend map: static overlay, then the preset toggle and uncertainty display.
    Preceded by the showcase/storytelling spike (docs/SHOWCASE_SPIKE.md).

@@ -218,3 +218,43 @@ integration-tested directly. (b) Two schema-management regimes will coexist
 once Django lands (SQL for ETL tables, migrations for curation tables); the
 boundary is "who writes the table". (c) The dev stack gains docker-compose.yml
 (PostGIS on host port 5434 — 5432/5433 are taken on the dev machine).
+
+---
+
+## 2026-08-24 — ADR-0011: The v1 API is a thin, read-only DRF layer over the tested store
+
+**Context.** Step 4 (Django + DRF). The temptation at this layer is to grow a
+parallel data-access stack: ORM models for the ETL tables, GeoDjango for the
+geometry, and computed CO2 figures in every response.
+
+**Decision.**
+
+1. **Views call the store, not an ORM.** DRF views obtain Django's underlying
+   psycopg connection (`django.db.connection.connection` — Django's postgres
+   backend is psycopg 3) and call the already-tested `carbon_atlas.db.store`
+   functions. No Django models exist for the ETL tables; ORM models arrive
+   only with the curation tables they own (step 5, per ADR-0010).
+2. **No GeoDjango.** `django.contrib.gis` would drag GDAL/GEOS system
+   libraries into every install (a swamp on Windows) to do what the store's
+   PostGIS SQL already does, where it is integration-tested. Cell polygons in
+   API responses are built from the integer cell indices in Python.
+3. **Read-only v1.** GET endpoints only: the preset catalog, run provenance,
+   and bbox-scoped trawled cells. Auth arrives with contributor features
+   (PROJECT_SPEC step 8), not before.
+4. **No CO2 numbers over the wire — yet.** The reactivity presets convert
+   *disturbed carbon mass* to CO2, and no citable disturbed-carbon model
+   (gear penetration depth, swept-volume ratio) is encoded yet. Until that
+   model exists with SCIENCE_BASIS provenance and its own ADR, the API serves
+   the presets' fractions, citations, and derivation notes — never a CO2
+   figure it cannot source. Serving one anyway would be inventing science in
+   the serializer.
+5. Django settings read the same `CARBON_ATLAS_DB_URL` DSN as everything else
+   (parsed with `psycopg.conninfo`, no extra dependency); `pytest-django`
+   joins the dev toolchain and API tests run against a schema.sql-initialized
+   test database on the same PostGIS server.
+
+**Consequences.** (a) The API layer contains no query logic of its own to get
+wrong — its tests are about HTTP contracts (shapes, errors, honesty labels),
+not re-proofs of SQL. (b) When the disturbed-carbon model lands, estimate
+endpoints get added alongside it, citations first. (c) GeoDjango can still be
+adopted later by its own ADR if tile serving demands it.
