@@ -27,6 +27,7 @@ dev = [
     "pytest>=8.0",
     "hypothesis>=6.100",
     "pytest-cov>=5.0",
+    "pytest-django>=4.9",
     "ruff>=0.5",
     "pip-audit>=2.7",   # dependency vulnerability scan (OSV/PyPI advisories)
     "bandit>=1.7",      # static security analysis of our own source
@@ -45,6 +46,7 @@ where = ["src"]
 [tool.pytest.ini_options]
 minversion = "8.0"
 testpaths = ["tests"]
+DJANGO_SETTINGS_MODULE = "carbon_atlas.web.settings"
 # Strict markers: an unregistered @pytest.mark.foo is an error, not a silent
 # no-op. This is a direct guard against a test that looks scoped but isn't.
 addopts = "-ra --strict-markers --strict-config"
