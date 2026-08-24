@@ -64,7 +64,8 @@ def _parse_bbox(request: Request) -> BoundingBox:
 
 def _feature(trawled: TrawledCell) -> dict:
     """One trawled cell as a GeoJSON Feature: the true cell polygon (closed
-    ring on the 0.01-degree corners), hours, and the FULL carbon pair."""
+    ring on the 0.01-degree corners), hours per gear class and totalled, and
+    the FULL carbon pair."""
     cell = trawled.cell
     lon0, lat0 = cell.lon_index / 100, cell.lat_index / 100
     lon1, lat1 = (cell.lon_index + 1) / 100, (cell.lat_index + 1) / 100
@@ -75,7 +76,8 @@ def _feature(trawled: TrawledCell) -> dict:
             "coordinates": [[[lon0, lat0], [lon1, lat0], [lon1, lat1], [lon0, lat1], [lon0, lat0]]],
         },
         "properties": {
-            "fishing_hours": trawled.fishing_hours,
+            "fishing_hours": trawled.total_fishing_hours,
+            "fishing_hours_by_gear": trawled.fishing_hours_by_gear,
             "oc_density": {
                 "mean": trawled.carbon.mean,
                 "uncertainty": trawled.carbon.uncertainty,

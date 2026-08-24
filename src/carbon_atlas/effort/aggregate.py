@@ -35,15 +35,18 @@ class EffortRecord:
             )
 
 
-def aggregate_fishing_hours(records: Iterable[EffortRecord]) -> dict[GridCell, float]:
-    """Included-gear fishing hours summed per cell.
+def aggregate_fishing_hours(records: Iterable[EffortRecord]) -> dict[GridCell, dict[str, float]]:
+    """Included-gear fishing hours summed per cell, PER GEAR CLASS.
 
-    A cell fished only by excluded gear is absent from the result — absent
-    means "no included effort observed", which is not the same claim as a
-    present 0.0 (a vessel looked-at and found not fishing).
+    Gear classes stay separate because the disturbed-carbon model (ADR-0012)
+    prices them differently — summing here would silently price dredge hours
+    as trawler hours. A cell fished only by excluded gear is absent from the
+    result — absent means "no included effort observed", which is not the
+    same claim as a present 0.0 (a vessel looked-at and found not fishing).
     """
-    totals: dict[GridCell, float] = {}
+    totals: dict[GridCell, dict[str, float]] = {}
     for record in records:
         if is_included_gear(record.geartype):
-            totals[record.cell] = totals.get(record.cell, 0.0) + record.fishing_hours
+            by_gear = totals.setdefault(record.cell, {})
+            by_gear[record.geartype] = by_gear.get(record.geartype, 0.0) + record.fishing_hours
     return totals

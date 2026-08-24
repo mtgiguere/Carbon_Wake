@@ -312,3 +312,39 @@ storage must land before any cell-level CO2 estimate is computed. (c) The
 2012-weighted widths are period-appropriate for the stored 2012 run; a run
 over another year should recompute them from that year's vessel table (the
 computation is one documented script pass).
+
+---
+
+## 2026-08-24 — ADR-0013: Effort is per-gear end to end; pre-1.0 schema evolves by recreate
+
+**Context.** ADR-0012 consequence (b): the disturbed-carbon model prices
+trawler and dredge hours differently, so gear identity must survive from the
+CSV row to the database and the API.
+
+**Decision.**
+
+1. **Per-gear everywhere.** Aggregation returns hours per cell PER GEAR
+   CLASS; the overlap join, the store, and the API cells payload all carry
+   `fishing_hours_by_gear`, with totals derived, never stored independently.
+2. **Two explicit gear columns** in `overlap_cell`
+   (`fishing_hours_trawlers`, `fishing_hours_dredge_fishing`) rather than a
+   normalized child table: the ADR-0009 inclusion set is pinned at exactly
+   these two classes, and admitting a third is an ADR plus a schema change by
+   design. `NULL` in a gear column means "no record of this gear here" — a
+   different claim from a recorded `0.0`, preserved all the way down. A row
+   with every gear column NULL is refused by CHECK.
+3. **The total is a GENERATED column**
+   (`coalesce(trawlers,0)+coalesce(dredge,0)`), so no writer can ever store a
+   total that disagrees with its parts — existing total-based queries keep
+   working and cannot drift.
+4. **Pre-1.0 schema evolution is drop-and-recreate + ETL rerun.** schema.sql
+   stays the single authoritative definition for fresh installs; no migration
+   framework exists yet. The 2012 run is reproducible in ~6 minutes, so
+   recreating is cheaper and safer than hand migrations. First release with
+   data anyone else depends on brings a real migration story (its own ADR).
+
+**Consequences.** (a) Cell-level CO2 estimates are now unblocked. (b) Real
+2012 German Bight fact surfaced by the per-gear pins: ALL dredge effort in
+the fixture region sits on unmapped nearshore cells — gear-blind storage
+would have hidden that. (c) The local database was recreated and the 2012
+full-region run re-executed under the new schema.

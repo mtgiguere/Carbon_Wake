@@ -169,11 +169,10 @@ suites grow, the fast unit run is `pytest -m "not integration and not visual"`.
    GeoJSON — as a thin layer whose views call the tested store over the raw
    psycopg connection (no ORM models for ETL tables, no GeoDjango).
    Deliberately NOT served yet: CO2 estimates. The citable disturbed-carbon
-   model now exists (`carbon_atlas.disturbance`, ADR-0012, SCIENCE_BASIS
-   "The disturbed-carbon model") — remaining before estimates cross the
-   wire: per-gear effort aggregation/storage (the ETL currently sums the two
-   gear classes, which the model prices differently; ADR-0012 consequence b),
-   then the estimate endpoints, citations attached.
+   model exists (`carbon_atlas.disturbance`, ADR-0012, SCIENCE_BASIS "The
+   disturbed-carbon model") and effort is now per-gear end to end
+   (ADR-0013), so the estimate endpoints are unblocked — they are the next
+   slice, citations attached.
 5. Django admin curation for sources/citations/confidence tiers.
 6. Frontend map: static overlay, then the preset toggle and uncertainty display.
    Preceded by the showcase/storytelling spike (docs/SHOWCASE_SPIKE.md).

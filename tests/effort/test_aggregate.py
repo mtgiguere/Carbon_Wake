@@ -1,9 +1,11 @@
 """Behavioral contract for effort aggregation.
 
-The ETL's question to this module: given many daily per-fleet effort records,
-how many included-gear fishing hours landed in each grid cell? The answer feeds
-the spatial join against the carbon layer, so a record that would poison the
-sum (negative hours, NaN) must be rejected at construction, never absorbed.
+The ETL's question to this module: for each grid cell, how many fishing hours
+of each included gear class landed there? Per-gear matters because the
+disturbed-carbon model (ADR-0012) prices the classes differently — summing
+them first would silently price dredge hours as trawler hours. A record that
+would poison the sums (negative hours, NaN) is rejected at construction,
+never absorbed.
 
 Written test-first per TDD_CONTRACT.md.
 """
@@ -25,18 +27,23 @@ def _record(cell: GridCell, geartype: str, fishing_hours: float) -> EffortRecord
     return EffortRecord(cell=cell, geartype=geartype, fishing_hours=fishing_hours)
 
 
-def test_hours_sum_per_cell_across_records():
-    """Two fleets trawling the same cell add up; a different cell stays its own
-    total. This is the number the overlap query joins on."""
+def test_hours_sum_per_cell_per_gear_class():
+    """Gear classes stay separate within a cell — the disturbed-carbon model
+    prices them differently, so summing here would corrupt every estimate —
+    while records of the SAME gear in the same cell add up."""
     totals = aggregate_fishing_hours(
         [
             _record(_CELL_A, "trawlers", 2.5),
             _record(_CELL_A, "dredge_fishing", 1.0),
+            _record(_CELL_A, "trawlers", 1.5),
             _record(_CELL_B, "trawlers", 4.0),
         ]
     )
 
-    assert totals == {_CELL_A: 3.5, _CELL_B: 4.0}
+    assert totals == {
+        _CELL_A: {"trawlers": 4.0, "dredge_fishing": 1.0},
+        _CELL_B: {"trawlers": 4.0},
+    }
 
 
 def test_excluded_gear_contributes_nothing_not_even_the_cell():
@@ -50,7 +57,7 @@ def test_excluded_gear_contributes_nothing_not_even_the_cell():
         ]
     )
 
-    assert totals == {_CELL_A: 2.0}
+    assert totals == {_CELL_A: {"trawlers": 2.0}}
 
 
 def test_no_records_aggregate_to_an_empty_mapping():
@@ -61,11 +68,11 @@ def test_no_records_aggregate_to_an_empty_mapping():
 
 def test_zero_fishing_hours_is_a_valid_record():
     """GFW emits rows where a vessel was present but no fishing was detected —
-    fishing_hours 0.0 is real data, and it does surface its cell (effort was
-    looked for and none found: a true zero, not an unknown)."""
+    fishing_hours 0.0 is real data, and it does surface its cell and gear
+    (effort was looked for and none found: a true zero, not an unknown)."""
     totals = aggregate_fishing_hours([_record(_CELL_A, "trawlers", 0.0)])
 
-    assert totals == {_CELL_A: 0.0}
+    assert totals == {_CELL_A: {"trawlers": 0.0}}
 
 
 def test_negative_fishing_hours_is_rejected_at_construction():
@@ -98,23 +105,30 @@ _records = st.lists(
     max_size=50,
 )
 
-
-@given(records=_records)
-def test_aggregate_conserves_included_hours_exactly_no_more_no_less(records):
-    """Property: the aggregate's grand total equals the sum of included-gear
-    record hours — no effort invented, none lost, and excluded gear contributes
-    exactly nothing regardless of how records interleave."""
-    totals = aggregate_fishing_hours(records)
-
-    included = [r.fishing_hours for r in records if r.geartype in ("trawlers", "dredge_fishing")]
-    assert math.isclose(sum(totals.values()), sum(included), rel_tol=1e-9, abs_tol=1e-9)
+_INCLUDED = ("trawlers", "dredge_fishing")
 
 
 @given(records=_records)
-def test_every_aggregated_cell_traces_back_to_an_included_record(records):
-    """Property: no cell appears from nowhere — each key in the result is the
-    cell of at least one included-gear record."""
+def test_aggregate_conserves_hours_exactly_per_gear_class(records):
+    """Property: for EACH included gear class, the aggregate's grand total
+    equals the sum of that class's record hours — no effort invented, lost,
+    or reattributed to another gear, however records interleave."""
     totals = aggregate_fishing_hours(records)
 
-    included_cells = {r.cell for r in records if r.geartype in ("trawlers", "dredge_fishing")}
-    assert set(totals) == included_cells
+    for gear in _INCLUDED:
+        aggregated = sum(by_gear.get(gear, 0.0) for by_gear in totals.values())
+        recorded = sum(r.fishing_hours for r in records if r.geartype == gear)
+        assert math.isclose(aggregated, recorded, rel_tol=1e-9, abs_tol=1e-9)
+
+
+@given(records=_records)
+def test_every_aggregated_cell_and_gear_traces_back_to_a_record(records):
+    """Property: no cell appears from nowhere and no gear appears in a cell
+    without a record of that gear in that cell."""
+    totals = aggregate_fishing_hours(records)
+
+    assert set(totals) == {r.cell for r in records if r.geartype in _INCLUDED}
+    for cell, by_gear in totals.items():
+        assert set(by_gear) == {
+            r.geartype for r in records if r.cell == cell and r.geartype in _INCLUDED
+        }

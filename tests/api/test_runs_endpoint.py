@@ -23,11 +23,11 @@ _RESULT = OverlapResult(
     trawled=(
         TrawledCell(
             cell=GridCell(lat_index=5390, lon_index=764),
-            fishing_hours=15.0057,
+            fishing_hours_by_gear={"trawlers": 15.0057},
             carbon=CarbonDensity(mean=1.5652642, uncertainty=2.4579988),
         ),
     ),
-    unmapped_effort={GridCell(lat_index=5366, lon_index=748): 7.25},
+    unmapped_effort={GridCell(lat_index=5366, lon_index=748): {"dredge_fishing": 7.25}},
 )
 
 
