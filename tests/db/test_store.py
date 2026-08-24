@@ -17,6 +17,8 @@ import pytest
 from carbon_atlas.carbon.density import CarbonDensity
 from carbon_atlas.db.store import (
     apply_schema,
+    get_run,
+    list_runs,
     load_overlap,
     store_overlap,
     trawled_cells_intersecting,
@@ -98,6 +100,40 @@ def test_an_empty_overlap_is_a_valid_run_not_an_error(conn):
         "SELECT cells_mapped, cells_unmapped FROM etl_run WHERE id = %s", (run_id,)
     ).fetchone()
     assert counts == (0, 0)
+
+
+def test_runs_list_newest_first_with_full_provenance(conn):
+    """list_runs surfaces every run's provenance record — newest first, since
+    the newest run is what the map shows by default."""
+    first = _store(conn)
+    second = store_overlap(conn, _RESULT, effort_source="e2", carbon_source="c2")
+
+    runs = list_runs(conn)
+
+    assert [r.id for r in runs] == [second, first]
+    newest = runs[0]
+    assert newest.effort_source == "e2"
+    assert newest.carbon_source == "c2"
+    assert "midwater" in newest.effort_layer_label.lower()
+    assert (newest.cells_mapped, newest.cells_unmapped) == (2, 1)
+    assert math.isclose(newest.fishing_hours_mapped, 15.0057, rel_tol=1e-12)
+    assert math.isclose(newest.fishing_hours_unmapped, 7.25, rel_tol=1e-12)
+    assert newest.created_at is not None
+
+
+def test_an_empty_database_lists_no_runs(conn):
+    """No runs is a valid answer — an empty tuple, not an error."""
+    assert list_runs(conn) == ()
+
+
+def test_get_run_returns_one_run_and_unknown_ids_fail_loudly(conn):
+    """get_run is the single-run lookup the API's 404 depends on: a real id
+    returns its record, an unknown id raises naming itself."""
+    run_id = _store(conn)
+
+    assert get_run(conn, run_id).id == run_id
+    with pytest.raises(KeyError, match="4242"):
+        get_run(conn, 4242)
 
 
 def test_loading_an_unknown_run_fails_loudly(conn):
