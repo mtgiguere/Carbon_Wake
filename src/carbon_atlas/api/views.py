@@ -9,8 +9,19 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from carbon_atlas.db.store import get_run, list_runs, trawled_cells_intersecting
+from carbon_atlas.db.store import (
+    effort_density_moments,
+    get_run,
+    list_runs,
+    trawled_cells_intersecting,
+)
+from carbon_atlas.disturbance import (
+    DEFAULT_GEAR_PROFILES,
+    combine_disturbed,
+    disturbed_carbon_from_effort_density_sum,
+)
 from carbon_atlas.effort.grid import BoundingBox
+from carbon_atlas.estimates import ESTIMATE_CAVEATS, CO2Quantity, estimate_region_co2
 from carbon_atlas.overlap import TrawledCell
 from carbon_atlas.reactivity.presets import PUBLISHED_PRESETS
 
@@ -109,5 +120,76 @@ class RunCellsView(APIView):
                 "type": "FeatureCollection",
                 "count": len(cells),
                 "features": [_feature(cell) for cell in cells],
+            }
+        )
+
+
+def _co2_payload(quantity: CO2Quantity | None) -> dict | None:
+    if quantity is None:
+        return None
+    return {"mean_kg": quantity.mean_kg, "uncertainty_kg": quantity.uncertainty_kg}
+
+
+class RunEstimateView(APIView):
+    """A run's region CO2 estimate — the headline number, served the only way
+    this project allows: as a cited range with uncertainty, wrapped in its
+    own provenance (coverage disclosure, gear profiles, model caveats).
+
+    Wiring only: the store supplies per-gear effort-density moments, and the
+    pure disturbance + estimates modules do every piece of arithmetic.
+    """
+
+    def get(self, request: Request, run_id: int) -> Response:
+        conn = _store_connection()
+        try:
+            run = get_run(conn, run_id)
+        except KeyError as exc:
+            raise NotFound(str(exc)) from exc
+
+        moments = effort_density_moments(conn, run_id)
+        disturbed = combine_disturbed(
+            disturbed_carbon_from_effort_density_sum(
+                hours_density_mean_sum=mean_sum,
+                hours_density_uncertainty_sum=uncertainty_sum,
+                profile=DEFAULT_GEAR_PROFILES[gear],
+            )
+            for gear, (mean_sum, uncertainty_sum) in sorted(moments.items())
+        )
+        region = estimate_region_co2(disturbed, PUBLISHED_PRESETS)
+
+        return Response(
+            {
+                "run_id": run.id,
+                "effort_layer_label": run.effort_layer_label,
+                "effort_coverage": {
+                    "cells_mapped": run.cells_mapped,
+                    "cells_unmapped": run.cells_unmapped,
+                    "fishing_hours_mapped": run.fishing_hours_mapped,
+                    "fishing_hours_unmapped": run.fishing_hours_unmapped,
+                },
+                "disturbed_carbon": {
+                    "mean_kg": disturbed.mean_kg,
+                    "uncertainty_kg": disturbed.uncertainty_kg,
+                },
+                "gear_profiles": [asdict(DEFAULT_GEAR_PROFILES[gear]) for gear in sorted(moments)],
+                "estimates": [
+                    {
+                        "preset": asdict(entry.preset),
+                        "aqueous_co2": _co2_payload(entry.aqueous),
+                        "atmospheric_co2": _co2_payload(entry.atmospheric),
+                    }
+                    for entry in region.per_preset
+                ],
+                "range": {
+                    "low": {
+                        "preset_key": region.low.preset.key,
+                        "aqueous_co2": _co2_payload(region.low.aqueous),
+                    },
+                    "high": {
+                        "preset_key": region.high.preset.key,
+                        "aqueous_co2": _co2_payload(region.high.aqueous),
+                    },
+                },
+                "caveats": list(ESTIMATE_CAVEATS),
             }
         )

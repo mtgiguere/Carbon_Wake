@@ -64,8 +64,10 @@ The pure modules — `carbon_atlas.reactivity` (the disputed science),
 `carbon_atlas.effort` (the 0.01° grid model and effort aggregation),
 `carbon_atlas.carbon` (carbon quantities that never travel without their
 uncertainty), `carbon_atlas.overlap` (the effort↔carbon join, pure by
-sampler injection), and `carbon_atlas.disturbance` (Sala's swept-volume
-chain with provenance-carrying gear profiles, ADR-0012) — must never import:
+sampler injection), `carbon_atlas.disturbance` (Sala's swept-volume chain
+with provenance-carrying gear profiles, ADR-0012), and
+`carbon_atlas.estimates` (CO2 with uncertainty, ranges attributed) — must
+never import:
 
 - a web framework (Django, DRF, FastAPI),
 - a database driver (psycopg, sqlalchemy),
@@ -130,6 +132,7 @@ tests/
   carbon/                unit + property tests for the carbon-quantity pure core
   overlap/               join contract tests + the real-data end-to-end milestone test
   disturbance/           unit + property tests for the disturbed-carbon pure core
+  estimates/             unit + property tests for CO2-with-uncertainty (pure)
   api/                   HTTP contract tests (shapes, errors, honesty labels) against a
                          schema.sql-initialized Django test DB on the same PostGIS server
   ingest/                parser contract tests + @integration tests on real samples
@@ -168,11 +171,11 @@ suites grow, the fast unit run is `pytest -m "not integration and not visual"`.
    (ADR-0011) — preset catalog, run provenance, bbox-scoped trawled cells as
    GeoJSON — as a thin layer whose views call the tested store over the raw
    psycopg connection (no ORM models for ETL tables, no GeoDjango).
-   Deliberately NOT served yet: CO2 estimates. The citable disturbed-carbon
-   model exists (`carbon_atlas.disturbance`, ADR-0012, SCIENCE_BASIS "The
-   disturbed-carbon model") and effort is now per-gear end to end
-   (ADR-0013), so the estimate endpoints are unblocked — they are the next
-   slice, citations attached.
+   Including the estimate endpoint (`/api/runs/<id>/estimate/`): the region
+   CO2 estimate as a cited, attributed range with uncertainty, wrapped in
+   its own provenance — coverage disclosure (mapped vs unmapped hours), gear
+   profiles with citations, and model caveats (ESTIMATE_CAVEATS). The pure
+   chain: store moments → `carbon_atlas.disturbance` → `carbon_atlas.estimates`.
 5. Django admin curation for sources/citations/confidence tiers.
 6. Frontend map: static overlay, then the preset toggle and uncertainty display.
    Preceded by the showcase/storytelling spike (docs/SHOWCASE_SPIKE.md).

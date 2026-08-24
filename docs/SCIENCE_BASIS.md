@@ -173,6 +173,13 @@ each one honest about what our data can support:
    v1 does NOT quantify — the disturbed mass inherits only the carbon
    density's per-pixel uncertainty. Recorded as an explicit unquantified-
    uncertainty caveat, not silently ignored.
+5. **Uncertainties combine LINEARLY across cells and gears** (added
+   2026-08-24, with the estimate layer). Linear is the conservative, fully
+   correlated treatment: Diesing's per-pixel *total* uncertainties include
+   systematic model components that cannot be assumed independent between
+   pixels, and within a cell the gear classes share one density. Summing in
+   quadrature would claim an independence we have not established and would
+   understate the band.
 
 ### Verification additions (2026-08-24)
 
