@@ -14,6 +14,24 @@ from dataclasses import dataclass
 from carbon_atlas.disturbance import DisturbedCarbon
 from carbon_atlas.reactivity.presets import ReactivityPreset, estimate_co2, estimate_range
 
+#: The model caveats that must travel with every served estimate — the
+#: honest-labeling rule applied to the number itself. Full provenance:
+#: SCIENCE_BASIS.md "The disturbed-carbon model" and ADR-0012.
+ESTIMATE_CAVEATS: tuple[str, ...] = (
+    "Covers effort on MAPPED seafloor carbon only; effort on unmapped seafloor "
+    "is excluded from the estimate and reported in effort_coverage.",
+    "Aqueous first-year CO2 basis: preset fractions are first-year "
+    "remineralization efficiencies of disturbed carbon (resettlement included); "
+    "atmospheric figures exist only where the cited source quantified outgassing.",
+    "Uncertainty reflects the carbon layer's per-pixel uncertainty only; gear "
+    "width, towing speed, and penetration depth carry real spread that is NOT "
+    "quantified here.",
+    "Gear widths are fleet-averages (effort-weighted, from GFW's vessel table), "
+    "not per-vessel; the GFW 'trawlers' class includes midwater trawlers "
+    "(ADR-0009), so swept bottom area is overstated where midwater effort is "
+    "common.",
+)
+
 
 @dataclass(frozen=True)
 class CO2Quantity:

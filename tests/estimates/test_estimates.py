@@ -86,6 +86,19 @@ def test_zero_disturbance_is_a_valid_all_zero_estimate():
         assert entry.aqueous.uncertainty_kg == 0.0
 
 
+@pytest.mark.parametrize(
+    ("mean_kg", "uncertainty_kg"),
+    [(-0.1, 1.0), (1.0, -0.1), (float("nan"), 1.0), (1.0, float("inf"))],
+)
+def test_a_corrupt_co2_quantity_cannot_be_constructed(mean_kg, uncertainty_kg):
+    """Same discipline as every quantity here: a negative or non-finite CO2
+    mass (or uncertainty) is impossible to build."""
+    from carbon_atlas.estimates import CO2Quantity
+
+    with pytest.raises(ValueError):
+        CO2Quantity(mean_kg=mean_kg, uncertainty_kg=uncertainty_kg)
+
+
 def test_no_presets_is_refused():
     """A range over zero presets has no meaning — same rule as the core."""
     with pytest.raises(ValueError):
