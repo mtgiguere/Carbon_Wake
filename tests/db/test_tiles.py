@@ -63,7 +63,9 @@ def test_the_covering_tile_carries_both_sides_with_honest_properties(conn):
     tile = mapbox_vector_tile.decode(cells_tile_mvt(conn, run_id, z=10, x=x, y=y))
 
     cells = tile["cells"]["features"]
-    by_key = {(f["properties"]["lat_index"], f["properties"]["lon_index"]): f["properties"] for f in cells}
+    by_key = {
+        (f["properties"]["lat_index"], f["properties"]["lon_index"]): f["properties"] for f in cells
+    }
     assert set(by_key) == {(5390, 764), (5391, 765), (5390, 765)}
 
     hotspot = by_key[(5390, 764)]

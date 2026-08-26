@@ -177,11 +177,14 @@ suites grow, the fast unit run is `pytest -m "not integration and not visual"`.
    profiles with citations, and model caveats (ESTIMATE_CAVEATS). The pure
    chain: store moments → `carbon_atlas.disturbance` → `carbon_atlas.estimates`.
 5. Django admin curation for sources/citations/confidence tiers.
-6. Frontend map: static overlay, then the preset toggle and uncertainty display.
-   The showcase/storytelling spike is done (docs/SHOWCASE_SPIKE.md,
-   2026-08-26): audience, storyboard, visual-honesty policy, and verified
-   tech foundations (MapLibre + PMTiles + ST_AsMVT tiles) — the frontend
-   step opens with the map-library ADR and Blind-spot-B pixel tests.
+6. **Frontend map** ← we are here. The showcase/storytelling spike is done
+   (docs/SHOWCASE_SPIKE.md, 2026-08-26), the map stack is decided
+   (ADR-0015: MapLibre vendored, no-key basemap, no build system), and the
+   bulk data feed exists: `/api/runs/<id>/tiles/<z>/<x>/<y>.mvt` — MVT built
+   by PostGIS over the GiST index, carrying both sides of the join and a
+   `mapped` flag so "unmapped ≠ zero" is expressible in the style. Next:
+   the page itself — static overlay with SwiftShader pixel tests
+   (Blind spot B), then the preset slider and uncertainty display.
 7. Docker Compose deployment, self-hosted end to end.
 8. (Later) Keycloak + contributor accounts.
 

@@ -33,6 +33,7 @@ dev = [
     "ruff>=0.5",
     "pip-audit>=2.7",   # dependency vulnerability scan (OSV/PyPI advisories)
     "bandit>=1.7",      # static security analysis of our own source
+    "mapbox-vector-tile>=2.0",  # decodes real MVT bytes in tile tests (ADR-0015)
 ]
 
 [tool.setuptools.packages.find]
