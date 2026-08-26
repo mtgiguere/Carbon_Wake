@@ -95,6 +95,44 @@ def test_every_cell_center_lies_strictly_inside_its_own_cell(lat_index, lon_inde
     assert lon_index / 100 < cell.center_lon < (lon_index + 1) / 100
 
 
+# --- Cell area: the saturation bound's ceiling ---------------------------------
+# The bounded disturbance model (ADR-0014) needs each cell's true seabed area:
+# a 0.01-degree cell shrinks with latitude, and using a fixed area would bias
+# the bound. Spherical-quad formula, R = 6,371,000 m (mean Earth radius).
+
+
+def test_an_equator_cell_has_the_full_centidegree_area():
+    """At the equator a 0.01 x 0.01 degree quad is ~1.2364 km^2 (spherical
+    Earth, R = 6371 km) — pinned against the independently computed value."""
+    assert math.isclose(GridCell(lat_index=0, lon_index=0).area_m2, 1.2364e6, rel_tol=1e-3)
+
+
+def test_a_north_sea_cell_shrinks_by_the_cosine_of_its_latitude():
+    """The real 2012 hotspot cell (center 53.905 N) has ~cos(53.905 deg) of
+    the equator area — the latitude dependence the bound must respect."""
+    ratio = GridCell(lat_index=5390, lon_index=764).area_m2 / GridCell(0, 0).area_m2
+
+    assert math.isclose(ratio, math.cos(math.radians(53.905)), rel_tol=1e-4)
+
+
+def test_cell_area_is_symmetric_across_the_equator():
+    """A southern cell mirrors its northern twin exactly."""
+    assert math.isclose(
+        GridCell(lat_index=-5391, lon_index=0).area_m2,
+        GridCell(lat_index=5390, lon_index=0).area_m2,
+        rel_tol=1e-12,
+    )
+
+
+@given(lat_index=_lat_indices, lon_index=_lon_indices)
+def test_every_cell_has_positive_area_no_larger_than_an_equator_cell(lat_index, lon_index):
+    """Property: every cell on the grid has strictly positive area, and none
+    exceeds the equator cell — the poleward shrink never inverts."""
+    area = GridCell(lat_index=lat_index, lon_index=lon_index).area_m2
+
+    assert 0.0 < area <= GridCell(lat_index=0, lon_index=0).area_m2
+
+
 # --- BoundingBox: the region scope -------------------------------------------
 # The ETL scopes effort to a WGS84 bounding box (in practice, the carbon
 # dataset's envelope): a cell is in scope when its CENTER is inside the box —

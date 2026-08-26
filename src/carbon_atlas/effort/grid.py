@@ -7,7 +7,13 @@ Floats are how the corners arrive, but they are a poor identity — 55.55 * 100 
 centidegrees, snapped once at the boundary and exact forever after.
 """
 
+import math
 from dataclasses import dataclass
+
+#: Mean Earth radius (m), spherical approximation — adequate for 0.01-degree
+#: cell areas (the spheroid correction is far below the model's other
+#: uncertainties, which are disclosed rather than pretended away).
+_EARTH_RADIUS_M = 6_371_000.0
 
 #: How far (in centidegrees) a coordinate may sit from an exact 0.01-degree
 #: corner and still be that corner. Float noise on a genuine corner is ~1e-12;
@@ -34,6 +40,16 @@ class GridCell:
     def center_lon(self) -> float:
         """The cell center's longitude — where point samples represent the cell."""
         return (self.lon_index + 0.5) / 100
+
+    @property
+    def area_m2(self) -> float:
+        """The cell's seabed area (m^2): spherical-quad formula
+        R^2 * dLon * (sin(lat_top) - sin(lat_bottom)) — shrinking with
+        latitude, which the saturation bound (ADR-0014) must respect."""
+        lat_bottom = math.radians(self.lat_index / 100)
+        lat_top = math.radians((self.lat_index + 1) / 100)
+        delta_lon = math.radians(0.01)
+        return _EARTH_RADIUS_M**2 * delta_lon * (math.sin(lat_top) - math.sin(lat_bottom))
 
 
 @dataclass(frozen=True)
