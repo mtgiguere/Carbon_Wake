@@ -9,19 +9,15 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from carbon_atlas.db.store import (
-    effort_density_moments,
-    get_run,
-    list_runs,
-    trawled_cells_intersecting,
-)
-from carbon_atlas.disturbance import (
-    DEFAULT_GEAR_PROFILES,
-    combine_disturbed,
-    disturbed_carbon_from_effort_density_sum,
-)
+from carbon_atlas.db.store import get_run, list_runs, load_overlap, trawled_cells_intersecting
+from carbon_atlas.disturbance import DEFAULT_GEAR_PROFILES
 from carbon_atlas.effort.grid import BoundingBox
-from carbon_atlas.estimates import ESTIMATE_CAVEATS, CO2Quantity, estimate_region_co2
+from carbon_atlas.estimates import (
+    ESTIMATE_CAVEATS,
+    CO2Quantity,
+    disturbed_from_cells,
+    estimate_region_co2,
+)
 from carbon_atlas.overlap import TrawledCell
 from carbon_atlas.reactivity.presets import PUBLISHED_PRESETS
 
@@ -135,8 +131,9 @@ class RunEstimateView(APIView):
     this project allows: as a cited range with uncertainty, wrapped in its
     own provenance (coverage disclosure, gear profiles, model caveats).
 
-    Wiring only: the store supplies per-gear effort-density moments, and the
-    pure disturbance + estimates modules do every piece of arithmetic.
+    Wiring only: the store supplies the run's cells, and the pure disturbance
+    + estimates modules do every piece of arithmetic — per cell, under the
+    saturation bound (ADR-0014), which a linear SQL sum cannot express.
     """
 
     def get(self, request: Request, run_id: int) -> Response:
@@ -146,15 +143,8 @@ class RunEstimateView(APIView):
         except KeyError as exc:
             raise NotFound(str(exc)) from exc
 
-        moments = effort_density_moments(conn, run_id)
-        disturbed = combine_disturbed(
-            disturbed_carbon_from_effort_density_sum(
-                hours_density_mean_sum=mean_sum,
-                hours_density_uncertainty_sum=uncertainty_sum,
-                profile=DEFAULT_GEAR_PROFILES[gear],
-            )
-            for gear, (mean_sum, uncertainty_sum) in sorted(moments.items())
-        )
+        result = load_overlap(conn, run_id)
+        disturbed = disturbed_from_cells(result.trawled, DEFAULT_GEAR_PROFILES)
         region = estimate_region_co2(disturbed, PUBLISHED_PRESETS)
 
         return Response(
@@ -171,7 +161,10 @@ class RunEstimateView(APIView):
                     "mean_kg": disturbed.mean_kg,
                     "uncertainty_kg": disturbed.uncertainty_kg,
                 },
-                "gear_profiles": [asdict(DEFAULT_GEAR_PROFILES[gear]) for gear in sorted(moments)],
+                "gear_profiles": [
+                    asdict(profile)
+                    for _, profile in sorted(DEFAULT_GEAR_PROFILES.items())
+                ],
                 "estimates": [
                     {
                         "preset": asdict(entry.preset),

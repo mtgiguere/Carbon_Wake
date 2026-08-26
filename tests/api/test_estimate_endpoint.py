@@ -17,12 +17,9 @@ import pytest
 
 from carbon_atlas.carbon.density import CarbonDensity
 from carbon_atlas.db.store import store_overlap
-from carbon_atlas.disturbance import (
-    DEFAULT_GEAR_PROFILES,
-    combine_disturbed,
-    disturbed_carbon_from_effort_density_sum,
-)
+from carbon_atlas.disturbance import DEFAULT_GEAR_PROFILES
 from carbon_atlas.effort.grid import GridCell
+from carbon_atlas.estimates import disturbed_from_cells
 from carbon_atlas.overlap import OverlapResult, TrawledCell
 
 pytestmark = [pytest.mark.integration, pytest.mark.django_db]
@@ -41,20 +38,8 @@ _RESULT = OverlapResult(
 
 # What the wired endpoint must reproduce, computed through the SAME pure
 # functions the pure suites pin — these tests verify wiring, not arithmetic.
-_EXPECTED_DISTURBED = combine_disturbed(
-    [
-        disturbed_carbon_from_effort_density_sum(
-            hours_density_mean_sum=15.0057 * _DENSITY.mean,
-            hours_density_uncertainty_sum=15.0057 * _DENSITY.uncertainty,
-            profile=DEFAULT_GEAR_PROFILES["trawlers"],
-        ),
-        disturbed_carbon_from_effort_density_sum(
-            hours_density_mean_sum=0.5 * _DENSITY.mean,
-            hours_density_uncertainty_sum=0.5 * _DENSITY.uncertainty,
-            profile=DEFAULT_GEAR_PROFILES["dredge_fishing"],
-        ),
-    ]
-)
+# The BOUNDED model (ADR-0014): per cell per gear against the cell's true area.
+_EXPECTED_DISTURBED = disturbed_from_cells(_RESULT.trawled, DEFAULT_GEAR_PROFILES)
 
 
 @pytest.fixture
