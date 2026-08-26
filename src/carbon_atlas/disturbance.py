@@ -153,38 +153,6 @@ def bounded_disturbed_carbon_kg(
     )
 
 
-def disturbed_carbon_from_effort_density_sum(
-    *,
-    hours_density_mean_sum: float,
-    hours_density_uncertainty_sum: float,
-    profile: GearProfile,
-) -> DisturbedCarbon:
-    """Region-scale disturbed carbon from one per-gear moment.
-
-    Because the per-cell factors (speed x width x penetration) are constant
-    per gear, sum_cells(h x rho) can be computed where the cells live (SQL)
-    and the constants applied here — and the result equals the per-cell path
-    exactly (pinned by property test). Inputs are kg·h/m3 sums over a run's
-    mapped cells; corrupt (negative/non-finite) moments are refused.
-    """
-    for name, value in (
-        ("hours_density_mean_sum", hours_density_mean_sum),
-        ("hours_density_uncertainty_sum", hours_density_uncertainty_sum),
-    ):
-        if not math.isfinite(value) or value < 0.0:
-            raise ValueError(f"{name} must be finite and non-negative; got {value!r}")
-    volume_rate_m3_per_hour_density = (
-        profile.towing_speed_knots
-        * METERS_PER_NAUTICAL_MILE
-        * profile.gear_width_m
-        * profile.penetration_depth_m
-    )
-    return DisturbedCarbon(
-        mean_kg=volume_rate_m3_per_hour_density * hours_density_mean_sum,
-        uncertainty_kg=volume_rate_m3_per_hour_density * hours_density_uncertainty_sum,
-    )
-
-
 def combine_disturbed(parts: Iterable[DisturbedCarbon]) -> DisturbedCarbon:
     """The total across gear classes: means AND uncertainties add linearly.
 

@@ -162,8 +162,7 @@ class RunEstimateView(APIView):
                     "uncertainty_kg": disturbed.uncertainty_kg,
                 },
                 "gear_profiles": [
-                    asdict(profile)
-                    for _, profile in sorted(DEFAULT_GEAR_PROFILES.items())
+                    asdict(profile) for _, profile in sorted(DEFAULT_GEAR_PROFILES.items())
                 ],
                 "estimates": [
                     {

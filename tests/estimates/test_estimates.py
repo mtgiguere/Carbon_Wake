@@ -155,19 +155,22 @@ def test_a_gear_without_a_profile_fails_loudly():
         disturbed_from_cells([cell], {})
 
 
-def test_the_caveats_disclose_the_known_saturation_overstatement():
-    """The 2026-08-24 retrospective identified a real model flaw: disturbed
-    carbon is linear in effort with NO saturation, so heavily trawled cells
-    (swept-area ratios in the hundreds) count the same sediment many times
-    over and the totals are OVERSTATED. Until the bounded model lands, every
-    served estimate must say so — a known flaw disclosed is rigor; a known
-    flaw omitted is the exact dishonesty this project exists to avoid."""
+def test_the_caveats_disclose_the_saturation_bounds_own_assumptions():
+    """The 2026-08-24 saturation flaw is FIXED by the bounded model
+    (ADR-0014), and the caveat changes with it: the served disclosure now
+    names the bound's assumption (random/Poisson tow placement, which
+    overstates freshly swept area versus real aggregated trawling) and that
+    year-to-year depletion is still unmodeled. The old KNOWN-FLAW wording
+    must be gone — a fixed flaw advertised as unfixed is also dishonest."""
     from carbon_atlas.estimates import ESTIMATE_CAVEATS
 
     text = " ".join(ESTIMATE_CAVEATS).lower()
 
     assert "saturation" in text
-    assert "overstate" in text
+    assert "random" in text
+    assert "aggregated" in text
+    assert "amoroso" in text
+    assert "known flaw" not in text
 
 
 @pytest.mark.parametrize(

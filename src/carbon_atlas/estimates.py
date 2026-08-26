@@ -36,12 +36,12 @@ ESTIMATE_CAVEATS: tuple[str, ...] = (
     "not per-vessel; the GFW 'trawlers' class includes midwater trawlers "
     "(ADR-0009), so swept bottom area is overstated where midwater effort is "
     "common.",
-    "KNOWN FLAW (identified 2026-08-24, fix scheduled): the model has no "
-    "saturation — disturbed carbon is linear in effort, so heavily trawled "
-    "cells (swept-area ratios in the hundreds in real hotspots) count the same "
-    "sediment many times over and totals are OVERSTATED, possibly by a large "
-    "factor. Treat current figures as pipeline-proof, not publication-grade. "
-    "See SCIENCE_BASIS.md 'Known limitations'.",
+    "Within-year saturation is modeled (ADR-0014): per cell and gear, the "
+    "disturbed footprint is 1 - exp(-SAR) — the trawling-footprint "
+    "literature's estimator under random (Poisson) tow placement (Amoroso et "
+    "al. 2018). Random placement overstates freshly swept area versus real "
+    "aggregated trawling, so the bound is conservative-high; year-to-year "
+    "depletion and recovery remain unmodeled.",
 )
 
 

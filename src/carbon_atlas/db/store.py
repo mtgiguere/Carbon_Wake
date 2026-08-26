@@ -186,34 +186,6 @@ def load_overlap(conn: psycopg.Connection, run_id: int) -> OverlapResult:
     return OverlapResult(trawled=trawled, unmapped_effort=unmapped)
 
 
-def effort_density_moments(conn: psycopg.Connection, run_id: int) -> dict[str, tuple[float, float]]:
-    """Per gear class, sum over the run's MAPPED cells of hours x density —
-    (sum of h x mean, sum of h x uncertainty), in kg·h/m3.
-
-    This is the exact quantity the pure estimate layer scales by the per-gear
-    constants (`disturbed_carbon_from_effort_density_sum`); the equality of
-    that shortcut with the per-cell model is property-tested. A gear with no
-    recorded hours on mapped cells is absent; a run with no mapped cells is
-    an empty mapping. Unknown runs raise, naming themselves.
-    """
-    if conn.execute("SELECT 1 FROM etl_run WHERE id = %s", (run_id,)).fetchone() is None:
-        raise KeyError(f"no etl_run with id {run_id}")
-    row = conn.execute(
-        "SELECT sum(fishing_hours_trawlers * oc_density_mean),"
-        " sum(fishing_hours_trawlers * oc_density_uncertainty),"
-        " sum(fishing_hours_dredge_fishing * oc_density_mean),"
-        " sum(fishing_hours_dredge_fishing * oc_density_uncertainty)"
-        " FROM overlap_cell WHERE run_id = %s AND oc_density_mean IS NOT NULL",
-        (run_id,),
-    ).fetchone()
-    moments = {}
-    if row[0] is not None:
-        moments["trawlers"] = (row[0], row[1])
-    if row[2] is not None:
-        moments["dredge_fishing"] = (row[2], row[3])
-    return moments
-
-
 def trawled_cells_intersecting(
     conn: psycopg.Connection,
     run_id: int,

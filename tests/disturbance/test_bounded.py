@@ -118,8 +118,12 @@ def test_bounded_never_exceeds_linear_or_the_physical_ceiling(hours, cell_area_m
 
     linear = disturbed_carbon_kg(hours, _PROFILE, _DENSITY)
     ceiling = cell_area_m2 * _PROFILE.penetration_depth_m * _DENSITY.mean
-    assert bounded.mean_kg <= linear.mean_kg * (1 + 1e-12)
-    assert bounded.mean_kg <= ceiling * (1 + 1e-12)
+    # The 1e-290 kg absolute slack exists ONLY for subnormal-float inputs
+    # (Hypothesis found hours=5e-324, where denormal rounding makes the two
+    # code paths differ at magnitudes of 1e-319 kg). Any real violation of
+    # the envelopes would exceed it by hundreds of orders of magnitude.
+    assert bounded.mean_kg <= linear.mean_kg * (1 + 1e-12) + 1e-290
+    assert bounded.mean_kg <= ceiling * (1 + 1e-12) + 1e-290
 
 
 @given(hours_a=_hours, hours_b=_hours)
