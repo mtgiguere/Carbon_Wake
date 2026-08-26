@@ -121,6 +121,38 @@ def swept_area_m2(fishing_hours: float, profile: GearProfile) -> float:
     return distance_m * profile.gear_width_m
 
 
+def bounded_disturbed_carbon_kg(
+    *,
+    fishing_hours: float,
+    profile: GearProfile,
+    density: CarbonDensity,
+    cell_area_m2: float,
+) -> DisturbedCarbon:
+    """Disturbed carbon in ONE cell under the saturation bound (ADR-0014).
+
+    The linear model counts the same sediment repeatedly wherever the swept
+    area exceeds the cell (real hotspots reach swept-area ratios in the
+    hundreds). The bound uses the trawling-footprint literature's Poisson
+    estimator — passes over any point are randomly distributed within the
+    cell (Amoroso et al. 2018) — whose closed form for the fraction swept at
+    least once is 1 - exp(-SAR). Disturbed volume is that footprint times the
+    penetration depth; the density's uncertainty scales by the same volume.
+
+    Random placement overstates freshly swept area relative to real
+    (aggregated) trawling, so the bound stays conservative-high — disclosed,
+    like everything else, in ESTIMATE_CAVEATS.
+    """
+    if not math.isfinite(cell_area_m2) or cell_area_m2 <= 0.0:
+        raise ValueError(f"cell_area_m2 must be finite and positive; got {cell_area_m2!r}")
+    swept_area_ratio = swept_area_m2(fishing_hours, profile) / cell_area_m2
+    footprint_m2 = cell_area_m2 * -math.expm1(-swept_area_ratio)
+    volume_m3 = footprint_m2 * profile.penetration_depth_m
+    return DisturbedCarbon(
+        mean_kg=volume_m3 * density.mean,
+        uncertainty_kg=volume_m3 * density.uncertainty,
+    )
+
+
 def disturbed_carbon_from_effort_density_sum(
     *,
     hours_density_mean_sum: float,
