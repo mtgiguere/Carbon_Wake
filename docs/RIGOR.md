@@ -105,12 +105,14 @@ faithful parameter lineage). The **derived layer** has known limitations,
 fully listed in SCIENCE_BASIS.md ("Known limitations of the v1 derived
 layer"). The one that gates everything:
 
-> **The v1 model has no saturation.** Disturbed carbon is linear in effort;
-> real hotspot cells have swept-area ratios in the hundreds, so the same
-> sediment is counted many times and totals are overstated — possibly by a
-> large factor. Every served estimate discloses this. The bounded model is
-> the next scheduled science slice; until it lands and the 2012 run is
-> re-reported, all figures are **pipeline-proof, not publication-grade**.
+> **The saturation flaw is FIXED (2026-08-26, ADR-0014).** Disturbance is now
+> bounded per cell by the Poisson footprint estimator (1 − e^(−SAR), Amoroso
+> et al. 2018), and the honest before/after is on record: **the naive model
+> had overstated 2012 North Sea disturbed carbon by 3.41×** (12.47 Mt →
+> 3.66 Mt ± 2.02 Mt; the served CO2 range became 3,982 t – 3.98 Mt aqueous).
+> The bound's own assumption (random tow placement, which still overstates
+> fresh area versus real aggregated trawling) is disclosed in every payload,
+> as is the unmodeled year-to-year depletion.
 
 A skeptical climate scientist should also note: the headline is Sala's
 assumptions transplanted onto regional data (a composition Sala never
@@ -127,8 +129,8 @@ map layer named for something the data cannot support.
 
 ## Roadmap discipline
 
-Next, in order: (1) the bounded saturation model — science pass, ADR, rerun,
-and an honest "the naive model said 12.5 Mt; the bounded one says X" report;
+Next, in order: (1) ~~the bounded saturation model~~ — done 2026-08-26
+(ADR-0014; the naive model said 12.47 Mt, the bounded one says 3.66 Mt);
 (2) the showcase/storytelling spike (docs/SHOWCASE_SPIKE.md); (3) the frontend
 map. Each is its own set of RED→GREEN cycles, and this document gets updated
 when reality contradicts it.

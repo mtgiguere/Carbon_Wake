@@ -17,7 +17,6 @@ import pytest
 from carbon_atlas.carbon.density import CarbonDensity
 from carbon_atlas.db.store import (
     apply_schema,
-    effort_density_moments,
     get_run,
     list_runs,
     load_overlap,
@@ -205,47 +204,6 @@ def test_the_total_hours_column_is_generated_and_cannot_drift(conn):
     ).fetchall()
 
     assert rows == [(7.25, None, 7.25), (15.0057, 0.5, 15.5057), (None, 0.0, 0.0)]
-
-
-def test_effort_density_moments_sum_hours_times_density_per_gear(conn):
-    """The moment the estimate layer consumes: per gear, sum over MAPPED
-    cells of hours x density (mean and uncertainty separately). Ground truth
-    from the seeded fixture, computed by hand: trawlers appear only in the
-    first cell; dredge hours span both mapped cells (0.5 h and a recorded
-    0.0 h). Unmapped cells contribute nothing — they have no density."""
-    run_id = _store(conn)
-
-    moments = effort_density_moments(conn, run_id)
-
-    assert set(moments) == {"trawlers", "dredge_fishing"}
-    trawl_mean, trawl_unc = moments["trawlers"]
-    assert math.isclose(trawl_mean, 15.0057 * 1.5652642, rel_tol=1e-9)
-    assert math.isclose(trawl_unc, 15.0057 * 2.4579988, rel_tol=1e-9)
-    dredge_mean, dredge_unc = moments["dredge_fishing"]
-    assert math.isclose(dredge_mean, 0.5 * 1.5652642 + 0.0 * 0.0, rel_tol=1e-9)
-    assert math.isclose(dredge_unc, 0.5 * 2.4579988 + 0.0 * 0.7, rel_tol=1e-9)
-
-
-def test_moments_of_a_run_with_no_mapped_cells_are_empty(conn):
-    """All-unmapped effort has no densities to sum: an empty mapping — the
-    honest 'nothing to estimate', distinct from zero-valued moments."""
-    from carbon_atlas.effort.grid import GridCell as _Cell
-    from carbon_atlas.overlap import OverlapResult as _Result
-
-    run_id = store_overlap(
-        conn,
-        _Result(trawled=(), unmapped_effort={_Cell(lat_index=1, lon_index=1): {"trawlers": 3.0}}),
-        effort_source="e",
-        carbon_source="c",
-    )
-
-    assert effort_density_moments(conn, run_id) == {}
-
-
-def test_moments_of_an_unknown_run_fail_loudly(conn):
-    """Same rule as every lookup: an unknown run raises naming itself."""
-    with pytest.raises(KeyError, match="777"):
-        effort_density_moments(conn, 777)
 
 
 def test_spatial_query_finds_the_cells_a_bbox_intersects(conn):

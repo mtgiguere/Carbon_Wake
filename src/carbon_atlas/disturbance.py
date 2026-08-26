@@ -121,35 +121,35 @@ def swept_area_m2(fishing_hours: float, profile: GearProfile) -> float:
     return distance_m * profile.gear_width_m
 
 
-def disturbed_carbon_from_effort_density_sum(
+def bounded_disturbed_carbon_kg(
     *,
-    hours_density_mean_sum: float,
-    hours_density_uncertainty_sum: float,
+    fishing_hours: float,
     profile: GearProfile,
+    density: CarbonDensity,
+    cell_area_m2: float,
 ) -> DisturbedCarbon:
-    """Region-scale disturbed carbon from one per-gear moment.
+    """Disturbed carbon in ONE cell under the saturation bound (ADR-0014).
 
-    Because the per-cell factors (speed x width x penetration) are constant
-    per gear, sum_cells(h x rho) can be computed where the cells live (SQL)
-    and the constants applied here — and the result equals the per-cell path
-    exactly (pinned by property test). Inputs are kg·h/m3 sums over a run's
-    mapped cells; corrupt (negative/non-finite) moments are refused.
+    The linear model counts the same sediment repeatedly wherever the swept
+    area exceeds the cell (real hotspots reach swept-area ratios in the
+    hundreds). The bound uses the trawling-footprint literature's Poisson
+    estimator — passes over any point are randomly distributed within the
+    cell (Amoroso et al. 2018) — whose closed form for the fraction swept at
+    least once is 1 - exp(-SAR). Disturbed volume is that footprint times the
+    penetration depth; the density's uncertainty scales by the same volume.
+
+    Random placement overstates freshly swept area relative to real
+    (aggregated) trawling, so the bound stays conservative-high — disclosed,
+    like everything else, in ESTIMATE_CAVEATS.
     """
-    for name, value in (
-        ("hours_density_mean_sum", hours_density_mean_sum),
-        ("hours_density_uncertainty_sum", hours_density_uncertainty_sum),
-    ):
-        if not math.isfinite(value) or value < 0.0:
-            raise ValueError(f"{name} must be finite and non-negative; got {value!r}")
-    volume_rate_m3_per_hour_density = (
-        profile.towing_speed_knots
-        * METERS_PER_NAUTICAL_MILE
-        * profile.gear_width_m
-        * profile.penetration_depth_m
-    )
+    if not math.isfinite(cell_area_m2) or cell_area_m2 <= 0.0:
+        raise ValueError(f"cell_area_m2 must be finite and positive; got {cell_area_m2!r}")
+    swept_area_ratio = swept_area_m2(fishing_hours, profile) / cell_area_m2
+    footprint_m2 = cell_area_m2 * -math.expm1(-swept_area_ratio)
+    volume_m3 = footprint_m2 * profile.penetration_depth_m
     return DisturbedCarbon(
-        mean_kg=volume_rate_m3_per_hour_density * hours_density_mean_sum,
-        uncertainty_kg=volume_rate_m3_per_hour_density * hours_density_uncertainty_sum,
+        mean_kg=volume_m3 * density.mean,
+        uncertainty_kg=volume_m3 * density.uncertainty,
     )
 
 
