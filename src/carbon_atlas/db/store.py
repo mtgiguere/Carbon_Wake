@@ -186,6 +186,38 @@ def load_overlap(conn: psycopg.Connection, run_id: int) -> OverlapResult:
     return OverlapResult(trawled=trawled, unmapped_effort=unmapped)
 
 
+_TILE_MVT = (
+    "SELECT ST_AsMVT(tile_rows, 'cells', 4096, 'geom') FROM ("
+    " SELECT ST_AsMVTGeom(ST_Transform(geom, 3857), ST_TileEnvelope(%(z)s, %(x)s, %(y)s),"
+    "                     4096, 64, true) AS geom,"
+    "        lat_index, lon_index, fishing_hours,"
+    "        fishing_hours_trawlers, fishing_hours_dredge_fishing,"
+    "        oc_density_mean, oc_density_uncertainty,"
+    "        (oc_density_mean IS NOT NULL) AS mapped"
+    " FROM overlap_cell"
+    " WHERE run_id = %(run_id)s"
+    "   AND geom && ST_Transform(ST_TileEnvelope(%(z)s, %(x)s, %(y)s), 4326)"
+    ") tile_rows WHERE geom IS NOT NULL"
+)
+
+
+def cells_tile_mvt(conn: psycopg.Connection, run_id: int, *, z: int, x: int, y: int) -> bytes:
+    """One slippy tile of the run's cells as Mapbox Vector Tile bytes.
+
+    PostGIS builds the tile (ST_AsMVT over the GiST-indexed geometry) — a
+    rendering-format encoder, not science. The 'cells' layer carries BOTH
+    sides of the join: per-gear hours (a gear with no record contributes no
+    key — absence stays distinct from zero, ADR-0013), the carbon pair on
+    mapped cells only, and a `mapped` flag so the style can honor the
+    "unmapped is not zero" rule visually (ADR-0015). An empty tile is empty
+    bytes; an unknown run raises, naming itself.
+    """
+    if conn.execute("SELECT 1 FROM etl_run WHERE id = %s", (run_id,)).fetchone() is None:
+        raise KeyError(f"no etl_run with id {run_id}")
+    row = conn.execute(_TILE_MVT, {"run_id": run_id, "z": z, "x": x, "y": y}).fetchone()
+    return bytes(row[0]) if row[0] is not None else b""
+
+
 def trawled_cells_intersecting(
     conn: psycopg.Connection,
     run_id: int,
