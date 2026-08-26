@@ -188,22 +188,26 @@ what we compute on top of it — has known weaknesses, ranked by severity. Every
 served estimate carries these as caveats (`ESTIMATE_CAVEATS`); this is the
 fuller record.
 
-1. **No saturation — the model overstates disturbed carbon in hotspots, and
-   this one requires a FIX, not a caveat.** Disturbed mass is linear in
-   fishing hours, but a 0.01° cell holds a finite amount of sediment.
-   Concrete case from the real 2012 run: the busiest Dutch-delta cell logged
-   427.6 h, which at 77.28 m × 3.0 kn sweeps ≈184 km² inside a ≈0.72 km² cell
-   — a swept-area ratio of ≈255. The linear model "disturbs" the same top
-   2.44 cm of sediment ~255 times and counts it every time. Sala's framework
-   treats the disturbed quantity as a *fraction* of a pixel's carbon
-   (implicitly bounded); our per-cell linearity is not bounded. Consequence:
-   the current regional totals (e.g. 2012's 12.5 Mt disturbed OC) are
-   **inflated by an unquantified but potentially large factor**, concentrated
-   in heavily trawled cells. Scheduled fix: a bounded per-cell form (cap at
-   the cell's penetrated volume, or a first-pass-depletion form such as
-   1 − e^(−SAR)), its own SCIENCE_BASIS pass and ADR, then a rerun to report
-   how far the headline moves. Until then: figures are pipeline-proof, not
-   publication-grade.
+1. **No saturation — RESOLVED 2026-08-26 (ADR-0014).** As identified in the
+   2026-08-24 retrospective: disturbed mass was linear in fishing hours, but
+   a 0.01° cell holds a finite amount of sediment (the busiest 2012
+   Dutch-delta cell had a swept-area ratio ≈255, so the linear model counted
+   the same top 2.44 cm ~255 times). **The fix:** per cell and gear, the
+   disturbed footprint is now cell_area × (1 − e^(−SAR)) — the Poisson
+   footprint estimator. Provenance: Amoroso et al. 2018 (PNAS
+   10.1073/pnas.1802379115; read via PMC6205437) estimates footprint on the
+   assumption, quoted verbatim, that "the number of times that any point
+   within the cell is trawled is randomly (Poisson) distributed"
+   [VERIFIED]; the closed form 1 − e^(−SAR) is OUR standard derivation from
+   that assumption [DERIVED]. Amoroso also documents that real trawling is
+   aggregated ("the most intensively trawled areas accounting for 90% of
+   activity comprised 77% of footprint on average") and that "repeated
+   passes on a previously trawled seabed each have a smaller impact than the
+   first pass" [VERIFIED] — so the Poisson bound still overstates freshly
+   swept area and the estimate remains conservative-high. **Measured
+   effect:** the naive model had overstated 2012 North Sea disturbed carbon
+   by 3.41× (12.47 Mt → 3.66 Mt ± 2.02 Mt). Year-to-year depletion and
+   recovery remain unmodeled (first-year framing only).
 2. **The headline is a composition Sala never published.** We apply Sala's
    29.7% mean efficiency to a disturbed mass computed differently from his
    (regional surficial density, fleet-average widths, no midwater exclusion).

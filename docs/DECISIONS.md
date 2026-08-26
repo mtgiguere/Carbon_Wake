@@ -348,3 +348,46 @@ CSV row to the database and the API.
 the fixture region sits on unmapped nearshore cells — gear-blind storage
 would have hidden that. (c) The local database was recreated and the 2012
 full-region run re-executed under the new schema.
+
+---
+
+## 2026-08-26 — ADR-0014: Within-year saturation via the Poisson footprint bound
+
+**Context.** The 2026-08-24 retrospective's headline flaw: disturbed carbon
+was linear in effort, so hotspot cells (real swept-area ratios in the
+hundreds) counted the same sediment repeatedly, inflating regional totals.
+
+**Decision.**
+
+1. Per cell and per gear, the disturbed footprint is
+   **cell_area × (1 − e^(−SAR))** — the trawling-footprint literature's
+   estimator under the assumption, quoted verbatim from Amoroso et al. 2018
+   (PNAS 10.1073/pnas.1802379115, PMC6205437), that "the number of times that
+   any point within the cell is trawled is randomly (Poisson) distributed".
+   Disturbed volume is that footprint times the gear's penetration depth;
+   properties pin the two envelopes (never above the linear model, never
+   above the cell's penetrated volume) and the low-effort limit (equal to
+   the linear model within 0.1% at SAR ≈ 0.001).
+2. Cell areas use the true spherical-quad area per latitude
+   (`GridCell.area_m2`, R = 6,371 km) — a fixed area would bias the bound.
+3. **The linear moment-path shortcut is removed** (store
+   `effort_density_moments`, disturbance
+   `disturbed_carbon_from_effort_density_sum`): a nonlinear bound cannot be
+   expressed as a linear moment. The estimate endpoint now loads the run's
+   cells and computes per cell in the pure layer (~5 s for the 371k-row 2012
+   run — acceptable for v1; caching is a future decision if it hurts).
+4. Amoroso 2018 also documents that real trawling is *aggregated*, and that
+   repeated passes disturb less than first passes — so the Poisson bound
+   still overstates freshly swept area and the estimate stays
+   conservative-high. Disclosed in ESTIMATE_CAVEATS, which now describe the
+   bound's own assumptions instead of a known flaw. Year-to-year depletion
+   and recovery remain unmodeled.
+
+**Consequences.** (a) **The naive model had overstated 2012 North Sea
+disturbed carbon by 3.41×**: 12.47 Mt → 3.66 Mt ± 2.02 Mt under the bound;
+the served range becomes 3,982 t (Hiddink-low, inferred) to 3.98 Mt (Sala)
+of first-year aqueous CO2. (b) No ETL rerun was needed — the bound applies
+at estimate time from stored per-cell data. (c) The closed form 1 − e^(−SAR)
+is our derivation from Amoroso's verbatim Poisson assumption (the paper
+states the assumption; the exponential form is its standard consequence) —
+flagged quoted-vs-derived in SCIENCE_BASIS.

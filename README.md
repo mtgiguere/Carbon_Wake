@@ -36,14 +36,15 @@ CO2 estimate as a **cited, attributed range with uncertainty** — for 2012,
 spanning the published 1000× disagreement (Hiddink to Sala), with the model's
 caveats embedded in every payload.
 
-**Scientific status: pipeline-proof, not publication-grade.** The v1 model has
-a known saturation flaw that overstates disturbed carbon in heavily trawled
-cells; it is disclosed in every served estimate and its fix is the next slice.
-See `docs/RIGOR.md` and `docs/SCIENCE_BASIS.md` ("Known limitations") before
-citing any number.
+**Scientific status:** the retrospective's saturation flaw is fixed
+(ADR-0014: Poisson footprint bound; the naive model had overstated 2012
+disturbed carbon 3.41×). Remaining limitations — fleet-average gear widths,
+midwater contamination of the GFW trawler class, uncertainty as a stated
+propagation convention rather than a CI, thin 2012 AIS coverage — are listed
+in `docs/SCIENCE_BASIS.md` ("Known limitations") and served inside every
+estimate payload. See `docs/RIGOR.md` before citing any number.
 
-Next: the bounded saturation model, then the storytelling spike
-(`docs/SHOWCASE_SPIKE.md`), then the frontend map.
+Next: the storytelling spike (`docs/SHOWCASE_SPIKE.md`), then the frontend map.
 
 ## Getting started (dev)
 
