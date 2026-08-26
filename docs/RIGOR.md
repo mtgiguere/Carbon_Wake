@@ -131,6 +131,7 @@ map layer named for something the data cannot support.
 
 Next, in order: (1) ~~the bounded saturation model~~ — done 2026-08-26
 (ADR-0014; the naive model said 12.47 Mt, the bounded one says 3.66 Mt);
-(2) the showcase/storytelling spike (docs/SHOWCASE_SPIKE.md); (3) the frontend
-map. Each is its own set of RED→GREEN cycles, and this document gets updated
-when reality contradicts it.
+(2) ~~the showcase/storytelling spike~~ — done 2026-08-26
+(docs/SHOWCASE_SPIKE.md: audience, storyboard, visual-honesty policy,
+verified tech foundations); (3) the frontend map. Each is its own set of
+RED→GREEN cycles, and this document gets updated when reality contradicts it.
