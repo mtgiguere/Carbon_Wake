@@ -178,7 +178,10 @@ suites grow, the fast unit run is `pytest -m "not integration and not visual"`.
    chain: store moments → `carbon_atlas.disturbance` → `carbon_atlas.estimates`.
 5. Django admin curation for sources/citations/confidence tiers.
 6. Frontend map: static overlay, then the preset toggle and uncertainty display.
-   Preceded by the showcase/storytelling spike (docs/SHOWCASE_SPIKE.md).
+   The showcase/storytelling spike is done (docs/SHOWCASE_SPIKE.md,
+   2026-08-26): audience, storyboard, visual-honesty policy, and verified
+   tech foundations (MapLibre + PMTiles + ST_AsMVT tiles) — the frontend
+   step opens with the map-library ADR and Blind-spot-B pixel tests.
 7. Docker Compose deployment, self-hosted end to end.
 8. (Later) Keycloak + contributor accounts.
 
