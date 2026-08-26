@@ -86,6 +86,75 @@ def test_zero_disturbance_is_a_valid_all_zero_estimate():
         assert entry.aqueous.uncertainty_kg == 0.0
 
 
+def test_a_regions_disturbed_carbon_is_the_bounded_per_cell_sum():
+    """disturbed_from_cells applies the BOUNDED model per cell per gear (each
+    gear priced by its own profile against the cell's true area) and combines
+    linearly — equal to the hand-built sum over the same cells."""
+    from carbon_atlas.carbon.density import CarbonDensity
+    from carbon_atlas.disturbance import (
+        DEFAULT_GEAR_PROFILES,
+        bounded_disturbed_carbon_kg,
+        combine_disturbed,
+    )
+    from carbon_atlas.effort.grid import GridCell
+    from carbon_atlas.estimates import disturbed_from_cells
+    from carbon_atlas.overlap import TrawledCell
+
+    hotspot = TrawledCell(
+        cell=GridCell(lat_index=5390, lon_index=764),
+        fishing_hours_by_gear={"trawlers": 427.6, "dredge_fishing": 2.0},
+        carbon=CarbonDensity(mean=1.5652642, uncertainty=2.4579988),
+    )
+    light = TrawledCell(
+        cell=GridCell(lat_index=5391, lon_index=760),
+        fishing_hours_by_gear={"trawlers": 0.25},
+        carbon=CarbonDensity(mean=4.2, uncertainty=1.1),
+    )
+
+    total = disturbed_from_cells([hotspot, light], DEFAULT_GEAR_PROFILES)
+
+    expected = combine_disturbed(
+        bounded_disturbed_carbon_kg(
+            fishing_hours=hours,
+            profile=DEFAULT_GEAR_PROFILES[gear],
+            density=cell.carbon,
+            cell_area_m2=cell.cell.area_m2,
+        )
+        for cell in (hotspot, light)
+        for gear, hours in cell.fishing_hours_by_gear.items()
+    )
+    assert math.isclose(total.mean_kg, expected.mean_kg, rel_tol=1e-12)
+    assert math.isclose(total.uncertainty_kg, expected.uncertainty_kg, rel_tol=1e-12)
+
+
+def test_no_cells_disturb_nothing():
+    """The empty region is the honest zero."""
+    from carbon_atlas.disturbance import DEFAULT_GEAR_PROFILES
+    from carbon_atlas.estimates import disturbed_from_cells
+
+    total = disturbed_from_cells([], DEFAULT_GEAR_PROFILES)
+
+    assert (total.mean_kg, total.uncertainty_kg) == (0.0, 0.0)
+
+
+def test_a_gear_without_a_profile_fails_loudly():
+    """A cell recording a gear the profile set cannot price must raise naming
+    the gear — silently skipping it would drop real effort from the estimate."""
+    from carbon_atlas.carbon.density import CarbonDensity
+    from carbon_atlas.effort.grid import GridCell
+    from carbon_atlas.estimates import disturbed_from_cells
+    from carbon_atlas.overlap import TrawledCell
+
+    cell = TrawledCell(
+        cell=GridCell(lat_index=100, lon_index=100),
+        fishing_hours_by_gear={"beam_trawlers": 1.0},
+        carbon=CarbonDensity(mean=1.0, uncertainty=0.1),
+    )
+
+    with pytest.raises(KeyError, match="beam_trawlers"):
+        disturbed_from_cells([cell], {})
+
+
 def test_the_caveats_disclose_the_known_saturation_overstatement():
     """The 2026-08-24 retrospective identified a real model flaw: disturbed
     carbon is linear in effort with NO saturation, so heavily trawled cells

@@ -8,10 +8,16 @@ never diverge, and there is exactly one place the disputed arithmetic lives.
 """
 
 import math
-from collections.abc import Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 
-from carbon_atlas.disturbance import DisturbedCarbon
+from carbon_atlas.disturbance import (
+    DisturbedCarbon,
+    GearProfile,
+    bounded_disturbed_carbon_kg,
+    combine_disturbed,
+)
+from carbon_atlas.overlap import TrawledCell
 from carbon_atlas.reactivity.presets import ReactivityPreset, estimate_co2, estimate_range
 
 #: The model caveats that must travel with every served estimate — the
@@ -75,6 +81,28 @@ class RegionEstimate:
     per_preset: tuple[PresetCO2, ...]
     low: PresetCO2
     high: PresetCO2
+
+
+def disturbed_from_cells(
+    trawled: Iterable[TrawledCell], profiles: Mapping[str, GearProfile]
+) -> DisturbedCarbon:
+    """A region's disturbed carbon: the BOUNDED model (ADR-0014) applied per
+    cell per gear — each gear priced by its own profile against the cell's
+    true area — combined linearly (the correlated convention).
+
+    A gear the profile set cannot price raises, naming the gear: silently
+    skipping it would drop real effort from the estimate.
+    """
+    return combine_disturbed(
+        bounded_disturbed_carbon_kg(
+            fishing_hours=hours,
+            profile=profiles[gear],
+            density=cell.carbon,
+            cell_area_m2=cell.cell.area_m2,
+        )
+        for cell in trawled
+        for gear, hours in cell.fishing_hours_by_gear.items()
+    )
 
 
 def _preset_co2(disturbed: DisturbedCarbon, preset: ReactivityPreset) -> PresetCO2:
