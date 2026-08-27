@@ -63,6 +63,21 @@ def _changed_pixels(png_a: bytes, png_b: bytes) -> int:
     return sum(1 for value in diff.tobytes() if value > 16)
 
 
+def _settle(page, mutation_js: str) -> None:
+    """Apply a map mutation and wait until the map has RENDERED it.
+
+    Waiting on a bare idle flag races: after a mutation, the flag is still
+    true from the PREVIOUS idle until the next 'render' event fires, so a
+    fast checker sees stale-true and screenshots a pre-render frame. (CI
+    caught exactly that: signal=0 because the 'on' screenshot preceded the
+    repaint; local runs had passed on timing luck.) Resetting the flag and
+    forcing a repaint in the SAME evaluate makes the wait deterministic —
+    'idle' then fires only after all tiles are loaded and drawn.
+    """
+    page.evaluate(f"{mutation_js}; window.__atlasIdle = false; window.__atlas.map.triggerRepaint()")
+    page.wait_for_function("window.__atlasIdle === true")
+
+
 def test_the_overlay_is_visible_as_measured_pixels(live_server, transactional_db):
     """Rendering the real German Bight cells changes thousands of pixels
     relative to the same scene without the overlay, while two overlay-off
@@ -78,16 +93,13 @@ def test_the_overlay_is_visible_as_measured_pixels(live_server, transactional_db
         page.wait_for_function("window.__atlas && window.__atlas.hasOverlay === true")
         # Dive to the fixture's German Bight footprint so the cells fill the
         # frame — the overlay must be judged where the data is.
-        page.evaluate("window.__atlas.map.jumpTo({center: [7.6, 53.79], zoom: 9})")
-        page.wait_for_function("window.__atlasIdle === true")
+        _settle(page, "window.__atlas.map.jumpTo({center: [7.6, 53.79], zoom: 9})")
 
-        page.evaluate("window.__atlas.setOverlayVisible(false)")
-        page.wait_for_function("window.__atlasIdle === true")
+        _settle(page, "window.__atlas.setOverlayVisible(false)")
         off_1 = page.screenshot()
         off_2 = page.screenshot()
 
-        page.evaluate("window.__atlas.setOverlayVisible(true)")
-        page.wait_for_function("window.__atlasIdle === true")
+        _settle(page, "window.__atlas.setOverlayVisible(true)")
         on = page.screenshot()
         browser.close()
 
