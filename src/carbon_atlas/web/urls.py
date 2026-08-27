@@ -7,6 +7,7 @@ from carbon_atlas.api.views import (
     RunCellsView,
     RunEstimateView,
     RunListView,
+    RunTilesView,
 )
 
 urlpatterns = [
@@ -14,4 +15,5 @@ urlpatterns = [
     path("api/runs/", RunListView.as_view()),
     path("api/runs/<int:run_id>/cells/", RunCellsView.as_view()),
     path("api/runs/<int:run_id>/estimate/", RunEstimateView.as_view()),
+    path("api/runs/<int:run_id>/tiles/<int:z>/<int:x>/<int:y>.mvt", RunTilesView.as_view()),
 ]

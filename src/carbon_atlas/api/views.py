@@ -4,12 +4,19 @@ from dataclasses import asdict
 
 import psycopg
 from django.db import connection
+from django.http import HttpResponse
 from rest_framework.exceptions import NotFound, ParseError
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from carbon_atlas.db.store import get_run, list_runs, load_overlap, trawled_cells_intersecting
+from carbon_atlas.db.store import (
+    cells_tile_mvt,
+    get_run,
+    list_runs,
+    load_overlap,
+    trawled_cells_intersecting,
+)
 from carbon_atlas.disturbance import DEFAULT_GEAR_PROFILES
 from carbon_atlas.effort.grid import BoundingBox
 from carbon_atlas.estimates import (
@@ -185,3 +192,23 @@ class RunEstimateView(APIView):
                 "caveats": list(ESTIMATE_CAVEATS),
             }
         )
+
+
+class RunTilesView(APIView):
+    """A run's cells as one Mapbox Vector Tile (ADR-0015).
+
+    Wiring only: PostGIS builds the tile in the tested store layer. Tile
+    coordinates that name no real slippy tile are refused with a 400, never
+    clamped onto one.
+    """
+
+    def get(self, request: Request, run_id: int, z: int, x: int, y: int) -> Response:
+        if z > 22 or x >= 2**z or y >= 2**z:
+            raise ParseError(f"no such tile: z={z}, x={x}, y={y} (0 <= x,y < 2^z, z <= 22)")
+        conn = _store_connection()
+        try:
+            get_run(conn, run_id)
+        except KeyError as exc:
+            raise NotFound(str(exc)) from exc
+        tile = cells_tile_mvt(conn, run_id, z=z, x=x, y=y)
+        return HttpResponse(tile, content_type="application/vnd.mapbox-vector-tile")

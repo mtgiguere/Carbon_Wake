@@ -391,3 +391,40 @@ at estimate time from stored per-cell data. (c) The closed form 1 − e^(−SAR)
 is our derivation from Amoroso's verbatim Poisson assumption (the paper
 states the assumption; the exponential form is its standard consequence) —
 flagged quoted-vs-derived in SCIENCE_BASIS.
+
+---
+
+## 2026-08-26 — ADR-0015: The map stack — MapLibre, a no-key basemap, MVT tiles from PostGIS, no build system
+
+**Context.** The showcase spike (docs/SHOWCASE_SPIKE.md) verified the
+foundations; the frontend step needs them decided. PROJECT_SPEC said "Mapbox
+GL JS (or similar WebGL map library)" — since then Mapbox GL JS v2+ went
+proprietary (token + usage billing), against the self-hosted ethos.
+
+**Decision.**
+
+1. **Map library: MapLibre GL JS** — BSD-3, Linux Foundation governance,
+   fork of Mapbox GL JS 1.13, provider-independent, no token (verified
+   2026-08-26). Its dist files are **vendored** into Django static files —
+   no CDN at runtime, no npm build system. Vanilla JS until complexity
+   demands otherwise (that would be its own ADR).
+2. **Basemap: OpenFreeMap's public style for development** (free, no key,
+   OSM ODbL attribution required); **self-hosted Protomaps PMTiles** (one
+   static regional extract, HTTP range requests, no tile server) is the
+   deployment-time target, decided with step 7 — it fits the single-VM
+   story exactly.
+3. **Our data layer is served as Mapbox Vector Tiles from PostGIS**:
+   `GET /api/runs/<id>/tiles/<z>/<x>/<y>.mvt`, built by `ST_AsMVT` /
+   `ST_AsMVTGeom` / `ST_TileEnvelope` over the GiST-indexed cell geometry —
+   the index was built for this. Tiles carry BOTH sides of the join
+   (per-gear hours, the carbon pair where mapped, and a `mapped` flag), so
+   the visual-honesty rule "unmapped ≠ zero" is expressible in the style.
+   ST_AsMVT is a rendering-format encoder, not science — the tested
+   store/pure layers remain the single source of every number the UI prints.
+
+**Consequences.** (a) Zero runtime dependence on any commercial map service;
+the attribution stack grows OSM ODbL. (b) MVT payloads are verified in tests
+by decoding real tiles (dev dependency `mapbox-vector-tile`), and every map
+layer still owes a SwiftShader pixel test before it is called visible
+(Blind spot B). (c) Vendored MapLibre is pinned and upgraded deliberately,
+like any dependency.
