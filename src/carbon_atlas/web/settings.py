@@ -16,7 +16,13 @@ from psycopg import conninfo
 SECRET_KEY = os.environ.get("CARBON_ATLAS_SECRET_KEY", "dev-only-insecure-secret-key")
 
 DEBUG = os.environ.get("CARBON_ATLAS_DEBUG", "") == "1"
-ALLOWED_HOSTS = [h for h in os.environ.get("CARBON_ATLAS_ALLOWED_HOSTS", "").split(",") if h]
+# Local hosts by default so `manage.py runserver` works out of the box even
+# with DEBUG=False (Django refuses an empty list); deployment sets the real
+# hostnames via CARBON_ATLAS_ALLOWED_HOSTS.
+ALLOWED_HOSTS = [h for h in os.environ.get("CARBON_ATLAS_ALLOWED_HOSTS", "").split(",") if h] or [
+    "localhost",
+    "127.0.0.1",
+]
 
 INSTALLED_APPS = [
     "django.contrib.staticfiles",

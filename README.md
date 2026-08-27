@@ -52,7 +52,15 @@ Next: the storytelling spike (`docs/SHOWCASE_SPIKE.md`), then the frontend map.
 py -3.12 -m venv .venv
 ./.venv/Scripts/python.exe -m pip install -e ".[dev]"   # Windows
 # source .venv/bin/activate  &&  pip install -e ".[dev]" # POSIX
+playwright install chromium   # for the visual (pixel) tests
+docker compose up -d          # PostGIS on localhost:5434
 pytest
+```
+
+To look at the map (after an ETL run has populated the database):
+
+```sh
+python manage.py runserver    # then open http://localhost:8000/
 ```
 
 Dependencies are added **only when the module that needs them is built** — so a
