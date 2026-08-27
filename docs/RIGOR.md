@@ -1,11 +1,12 @@
 # Rigor — how this project earns (and audits) its own trust
 
 > Written 2026-08-24, after the first full vertical slice (raw data → PostGIS →
-> API → cited CO2 range) went end to end. This is the document for anyone —
-> collaborator, reviewer, journalist, skeptical scientist — who wants to know
-> not *what* the tool says but *why they should believe how it was built*.
-> It includes the failures. Documented failures are rigor evidence; a project
-> that reports only its successes is advertising.
+> API → cited CO2 range) went end to end; updated 2026-08-27 after the second
+> retrospective (the map-page slice and its first-contact failures). This is
+> the document for anyone — collaborator, reviewer, journalist, skeptical
+> scientist — who wants to know not *what* the tool says but *why they should
+> believe how it was built*. It includes the failures. Documented failures are
+> rigor evidence; a project that reports only its successes is advertising.
 
 ## The one-paragraph claim
 
@@ -97,6 +98,11 @@ mean, so the pair cannot drift apart.
 | 2026-08-24 | Two local commits landed with a failing test | piping pytest through `tail` masked its exit code | squashed to green before push; exit codes now checked explicitly |
 | 2026-08-24 | The stored 2012 run vanished | **db test fixtures truncated the WORKING database between tests — shipped in PR #8, live through five PRs** | tests moved to their own `carbon_atlas_test` database, schema rebuilt fresh each session |
 | 2026-08-24 | Foreseeable rework: per-gear effort (PR #12) | first ETL slice aggregated gear-blind even though ADR-0009 said classes would be priced differently | redesigned end to end; lesson: read your own ADRs' consequences forward |
+| 2026-08-27 | Pixel test passed locally, failed on CI (`signal=0`) | waiting on a stale idle flag raced the renderer — local runs passed on timing luck ("green is a claim, not evidence", again) | deterministic settle: reset the flag and force a repaint in one evaluate; the guard caught its own test |
+| 2026-08-27 | `runserver` refused to start on first human contact | DEBUG=False + empty ALLOWED_HOSTS default; tests never see it (the harness appends `testserver` itself) | localhost defaults, regression-tested with the incident in the docstring |
+| 2026-08-27 | **The white map**: page shell rendered, map stuck at "loading…" for the owner | bare runserver serves no `/static/` with DEBUG=False → maplibre-gl.js 404'd. The page test had checked assets EXIST via finders, not that they are SERVED over HTTP — Blind spot A's self-referential pattern in infrastructure clothing. Three static-serving paths (test client / live_server / runserver) each differed from the user's in exactly the failing dimension | WhiteNoise unifies all serving paths; the new test requests assets over real HTTP and was RED exactly the way the browser was |
+| 2026-08-27 | Exit-code masking, SECOND occurrence — a red suite slipped a commit through `pytest \| tail` | repeated a lesson already in this log | never pipe the gate; explicit `rc=$?` before any commit. A documented lesson repeated is worse than a new mistake |
+| 2026-08-27 | Three essential fixes pushed to a branch whose PR was already merged — no CI ran, main silently carried the white-map bug for fresh clones | never checked PR state before pushing follow-ups | PR #19 opened for the stranded commits; rule: after any merge, verify PR state — post-merge fixes get a fresh branch and their own PR immediately |
 
 ## Current scientific status — read this before citing any number
 
@@ -120,6 +126,32 @@ published); midwater trawling contaminates the effort class (ADR-0009,
 labeled); the uncertainty band is a stated linear-propagation convention, not
 a confidence interval; and 2012 AIS coverage undercounts effort. All of this
 is printed on the product.
+
+## Standing rules the retrospectives added
+
+The incident log is only worth its ink if it changes behavior. Rules adopted
+so far, each traceable to a row above:
+
+1. **Test at the boundary the user crosses, not the boundary that's
+   convenient** (2026-08-27). The contract's blind spots are not a closed
+   list — they are instances of this law. "The asset exists" is not "the
+   asset is served"; "the layer loaded" is not "the layer is visible";
+   "the schema allows NULL" is not "the data contains NULL".
+2. **First-run before publish** (2026-08-27). Any instruction addressed to a
+   human — a README quickstart, a "try it" in a PR body — is executed once,
+   as written, before it ships. A UI slice is not done until its author has
+   run the app and looked at it.
+3. **Prefer unifying divergent paths over testing each one** (2026-08-27).
+   Three static-serving code paths invited the white-map bug; one middleware
+   closed the class, not just the instance.
+4. **JIT never defers the current slice's definition of done** (2026-08-27).
+   JIT defers what nobody needs *yet*. "A human can follow the README to a
+   working page" was part of the map-page slice, not a later deployment
+   concern — deferring it shipped a broken first contact.
+5. **A visual guard must be seen failing** (2026-08-26, Blind spot C): every
+   pixel test gets a RED demo before it counts as protection.
+6. **After any merge, verify PR state before pushing follow-ups**
+   (2026-08-27); post-merge fixes get a fresh branch and their own PR.
 
 ## What's deliberately NOT here
 
