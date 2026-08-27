@@ -160,6 +160,7 @@ class RunEstimateView(APIView):
         return Response(
             {
                 "run_id": run.id,
+                "effort_year": run.effort_year,
                 "effort_layer_label": run.effort_layer_label,
                 "effort_coverage": {
                     "cells_mapped": run.cells_mapped,

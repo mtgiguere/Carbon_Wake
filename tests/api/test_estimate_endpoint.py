@@ -105,6 +105,7 @@ def test_the_payload_discloses_coverage_profiles_and_caveats(payload):
     """The honesty layer travels with the number: the effort-layer label
     (midwater disclosure), mapped vs unmapped hours, each gear profile's
     provenance, and non-empty model caveats naming the mapped-only scope."""
+    assert payload["effort_year"] == 2012  # the UI titles the estimate with it
     assert "midwater" in payload["effort_layer_label"].lower()
     coverage = payload["effort_coverage"]
     assert coverage["cells_mapped"] == 1
