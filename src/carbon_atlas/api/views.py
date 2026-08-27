@@ -18,7 +18,7 @@ from carbon_atlas.db.store import (
     load_overlap,
     trawled_cells_intersecting,
 )
-from carbon_atlas.disturbance import DEFAULT_GEAR_PROFILES
+from carbon_atlas.disturbance import gear_profiles_for_year
 from carbon_atlas.effort.gears import EFFORT_LAYER_LABEL
 from carbon_atlas.effort.grid import BoundingBox
 from carbon_atlas.estimates import (
@@ -152,8 +152,9 @@ class RunEstimateView(APIView):
         except KeyError as exc:
             raise NotFound(str(exc)) from exc
 
+        profiles = gear_profiles_for_year(run.effort_year)
         result = load_overlap(conn, run_id)
-        disturbed = disturbed_from_cells(result.trawled, DEFAULT_GEAR_PROFILES)
+        disturbed = disturbed_from_cells(result.trawled, profiles)
         region = estimate_region_co2(disturbed, PUBLISHED_PRESETS)
 
         return Response(
@@ -170,9 +171,7 @@ class RunEstimateView(APIView):
                     "mean_kg": disturbed.mean_kg,
                     "uncertainty_kg": disturbed.uncertainty_kg,
                 },
-                "gear_profiles": [
-                    asdict(profile) for _, profile in sorted(DEFAULT_GEAR_PROFILES.items())
-                ],
+                "gear_profiles": [asdict(profile) for _, profile in sorted(profiles.items())],
                 "estimates": [
                     {
                         "preset": asdict(entry.preset),

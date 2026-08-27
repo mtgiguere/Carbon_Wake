@@ -27,6 +27,7 @@ class RunRecord:
     created_at: datetime
     effort_source: str
     carbon_source: str
+    effort_year: int
     effort_layer_label: str
     cells_mapped: int
     cells_unmapped: int
@@ -35,7 +36,7 @@ class RunRecord:
 
 
 _SELECT_RUNS = (
-    "SELECT id, created_at, effort_source, carbon_source, effort_layer_label,"
+    "SELECT id, created_at, effort_source, carbon_source, effort_year, effort_layer_label,"
     " cells_mapped, cells_unmapped, fishing_hours_mapped, fishing_hours_unmapped"
     " FROM etl_run"
 )
@@ -89,15 +90,21 @@ def store_overlap(
     *,
     effort_source: str,
     carbon_source: str,
+    effort_year: int,
 ) -> int:
-    """Persist ``result`` as one provenance-carrying run; returns the run id."""
+    """Persist ``result`` as one provenance-carrying run; returns the run id.
+
+    ``effort_year`` is load-bearing provenance: the estimate layer resolves
+    that year's gear profiles with it (ADR-0012c).
+    """
     run_id = conn.execute(
-        "INSERT INTO etl_run (effort_source, carbon_source, effort_layer_label,"
+        "INSERT INTO etl_run (effort_source, carbon_source, effort_year, effort_layer_label,"
         " cells_mapped, cells_unmapped, fishing_hours_mapped, fishing_hours_unmapped)"
-        " VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING id",
+        " VALUES (%s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
         (
             effort_source,
             carbon_source,
+            effort_year,
             EFFORT_LAYER_LABEL,
             len(result.trawled),
             len(result.unmapped_effort),

@@ -233,6 +233,16 @@ Diesing's *measured surficial* density (the sediment the gear actually
 penetrates, with per-pixel uncertainty) is arguably more defensible regionally
 than Sala's global first-meter stock.
 
+**Gear widths are year-specific, and 2012's is itself a coverage artifact
+(noted 2026-08-27, with the multi-year extension).** The effort-weighted
+otter-trawl width computed from GFW's vessel table is 77.28 m for 2012 but
+settles to ~63–65 m for 2013–2024 — because 2012's classified fleet held only
+5,654 trawlers (early AIS skewed toward large vessels) versus 39,419 by 2024.
+Every run is therefore priced with its own year's widths
+(`gear_profiles_for_year`, provenance naming the year and vessel count), and
+the 2012 estimates carry a known mild high bias on swept area from this
+artifact — disclosed here rather than smoothed away.
+
 ### Verification additions (2026-08-24)
 
 **Verified against primary full text:**

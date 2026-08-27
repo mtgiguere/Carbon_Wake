@@ -22,6 +22,7 @@ from carbon_atlas.disturbance import (
     DisturbedCarbon,
     GearProfile,
     disturbed_carbon_kg,
+    gear_profiles_for_year,
     swept_area_m2,
 )
 
@@ -214,3 +215,47 @@ def test_disturbed_mass_scales_the_uncertainty_by_exactly_the_disturbed_volume(h
     assert mass.uncertainty_kg >= 0.0
     assert mass.mean_kg == volume * mean
     assert mass.uncertainty_kg == volume * unc
+
+
+# --- Year-resolved profiles (ADR-0012 consequence c, executed) ---------------
+# Gear widths are effort-weighted means over GFW's vessel table FOR THAT YEAR:
+# 2012's 77.28 m is itself a coverage artifact (only 5,654 classified trawlers,
+# skewed large); by 2024 the fleet table holds 39,419 and the width settles
+# near 63.5 m. Pricing a run with another year's widths is therefore a real
+# error, not a rounding choice.
+
+
+def test_each_year_resolves_to_its_own_profiles():
+    """2012 and 2024 carry their own computed widths; constants (speeds,
+    penetration depths) stay year-invariant; provenance names the year and
+    its vessel count so the figure stays auditable."""
+    p2012 = gear_profiles_for_year(2012)
+    p2024 = gear_profiles_for_year(2024)
+
+    assert math.isclose(p2012["trawlers"].gear_width_m, 77.28, rel_tol=1e-9)
+    assert math.isclose(p2024["trawlers"].gear_width_m, 63.55, rel_tol=1e-9)
+    assert math.isclose(p2024["dredge_fishing"].gear_width_m, 13.39, rel_tol=1e-9)
+    for profiles in (p2012, p2024):
+        assert profiles["trawlers"].towing_speed_knots == 3.0
+        assert profiles["trawlers"].penetration_depth_m == 0.0244
+        assert profiles["dredge_fishing"].penetration_depth_m == 0.0547
+    assert "2024" in p2024["trawlers"].provenance
+    assert "39,419" in p2024["trawlers"].provenance
+
+
+def test_every_gfw_data_year_has_profiles():
+    """The GFW v3 product spans 2012-2024; each year resolves, and each
+    year's provenance names that year."""
+    for year in range(2012, 2025):
+        profiles = gear_profiles_for_year(year)
+        assert set(profiles) == {"trawlers", "dredge_fishing"}
+        assert str(year) in profiles["trawlers"].provenance
+
+
+def test_a_year_outside_the_data_fails_loudly():
+    """No silent fallback to some other year's fleet: an uncovered year
+    raises, naming itself and the covered span."""
+    with pytest.raises(KeyError, match="2011"):
+        gear_profiles_for_year(2011)
+    with pytest.raises(KeyError, match="2025"):
+        gear_profiles_for_year(2025)

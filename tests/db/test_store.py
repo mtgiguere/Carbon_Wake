@@ -49,7 +49,11 @@ _RESULT = OverlapResult(
 
 def _store(conn):
     return store_overlap(
-        conn, _RESULT, effort_source="GFW fleet-daily v3, 2012", carbon_source="Diesing 2021"
+        conn,
+        _RESULT,
+        effort_source="GFW fleet-daily v3, 2012",
+        carbon_source="Diesing 2021",
+        effort_year=2012,
     )
 
 
@@ -95,7 +99,7 @@ def test_an_empty_overlap_is_a_valid_run_not_an_error(conn):
     zero, distinguishable (via the run row) from 'never ran'."""
     empty = OverlapResult(trawled=(), unmapped_effort={})
 
-    run_id = store_overlap(conn, empty, effort_source="s", carbon_source="c")
+    run_id = store_overlap(conn, empty, effort_source="s", carbon_source="c", effort_year=2012)
 
     assert load_overlap(conn, run_id) == empty
     counts = conn.execute(
@@ -108,7 +112,7 @@ def test_runs_list_newest_first_with_full_provenance(conn):
     """list_runs surfaces every run's provenance record — newest first, since
     the newest run is what the map shows by default."""
     first = _store(conn)
-    second = store_overlap(conn, _RESULT, effort_source="e2", carbon_source="c2")
+    second = store_overlap(conn, _RESULT, effort_source="e2", carbon_source="c2", effort_year=2024)
 
     runs = list_runs(conn)
 
@@ -116,6 +120,7 @@ def test_runs_list_newest_first_with_full_provenance(conn):
     newest = runs[0]
     assert newest.effort_source == "e2"
     assert newest.carbon_source == "c2"
+    assert newest.effort_year == 2024
     assert "midwater" in newest.effort_layer_label.lower()
     assert (newest.cells_mapped, newest.cells_unmapped) == (2, 1)
     assert math.isclose(newest.fishing_hours_mapped, 15.5057, rel_tol=1e-12)
@@ -143,6 +148,14 @@ def test_loading_an_unknown_run_fails_loudly(conn):
     caller could mistake for a real run that found nothing."""
     with pytest.raises(KeyError, match="9999"):
         load_overlap(conn, 9999)
+
+
+def test_the_database_itself_rejects_a_pre_ais_effort_year(conn):
+    """effort_year is provenance the estimate layer PRICES with (year-specific
+    gear widths, ADR-0012c) — a year before the AIS record exists is corrupt
+    input, refused by the schema itself."""
+    with pytest.raises(psycopg.errors.CheckViolation):
+        store_overlap(conn, _RESULT, effort_source="e", carbon_source="c", effort_year=2011)
 
 
 def test_the_database_itself_rejects_half_a_carbon_pair(conn):
@@ -244,7 +257,11 @@ def test_a_real_years_overlap_stores_and_summarizes_correctly(conn):
         result = overlap_effort_with_carbon(effort, pair.sample)
 
     run_id = store_overlap(
-        conn, result, effort_source="GFW fleet-daily v3, 2012", carbon_source="Diesing 2021"
+        conn,
+        result,
+        effort_source="GFW fleet-daily v3, 2012",
+        carbon_source="Diesing 2021",
+        effort_year=2012,
     )
 
     mapped, unmapped, mapped_hours, unmapped_hours = conn.execute(

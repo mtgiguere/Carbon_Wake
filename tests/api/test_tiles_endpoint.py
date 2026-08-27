@@ -34,7 +34,7 @@ _RESULT = OverlapResult(
 
 @pytest.fixture
 def run_id(raw_conn):
-    return store_overlap(raw_conn, _RESULT, effort_source="e", carbon_source="c")
+    return store_overlap(raw_conn, _RESULT, effort_source="e", carbon_source="c", effort_year=2012)
 
 
 def test_a_tile_is_served_as_decodable_mvt_bytes(client, run_id):

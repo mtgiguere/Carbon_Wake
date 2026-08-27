@@ -41,7 +41,11 @@ def _seed_real_run() -> None:
     connection.ensure_connection()
     apply_schema(connection.connection)
     store_overlap(
-        connection.connection, result, effort_source="panel test", carbon_source="panel test"
+        connection.connection,
+        result,
+        effort_source="panel test",
+        carbon_source="panel test",
+        effort_year=2012,
     )
 
 

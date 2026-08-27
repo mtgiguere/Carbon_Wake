@@ -57,7 +57,7 @@ def test_the_covering_tile_carries_both_sides_with_honest_properties(conn):
     all three cells: per-gear hours as stored; the full carbon pair on mapped
     cells; NO carbon keys (not zeros!) on the unmapped cell; and a `mapped`
     flag the style can switch on."""
-    run_id = store_overlap(conn, _RESULT, effort_source="e", carbon_source="c")
+    run_id = store_overlap(conn, _RESULT, effort_source="e", carbon_source="c", effort_year=2012)
     x, y = _slippy_tile(53.905, 7.645, 10)
 
     tile = mapbox_vector_tile.decode(cells_tile_mvt(conn, run_id, z=10, x=x, y=y))
@@ -92,7 +92,7 @@ def test_low_zoom_tiles_aggregate_to_tenth_degree_bins(conn):
     area aboard so the style can color by hours per km2 at every zoom. The
     per-cell carbon pair does not survive aggregation (a bin-average would be
     a new, unpublished number) — inspection happens zoomed in."""
-    run_id = store_overlap(conn, _RESULT, effort_source="e", carbon_source="c")
+    run_id = store_overlap(conn, _RESULT, effort_source="e", carbon_source="c", effort_year=2012)
     x, y = _slippy_tile(53.905, 7.645, 7)
 
     tile = mapbox_vector_tile.decode(cells_tile_mvt(conn, run_id, z=7, x=x, y=y))
@@ -129,7 +129,7 @@ def test_full_zoom_tiles_carry_each_cells_own_area(conn):
     """From z8 up, tiles stay per-cell — and each cell now carries its own
     seabed area so the hours-per-km2 color ramp works identically at every
     zoom."""
-    run_id = store_overlap(conn, _RESULT, effort_source="e", carbon_source="c")
+    run_id = store_overlap(conn, _RESULT, effort_source="e", carbon_source="c", effort_year=2012)
     x, y = _slippy_tile(53.905, 7.645, 8)
 
     tile = mapbox_vector_tile.decode(cells_tile_mvt(conn, run_id, z=8, x=x, y=y))
@@ -148,7 +148,7 @@ def test_full_zoom_tiles_carry_each_cells_own_area(conn):
 def test_a_tile_with_no_cells_is_empty_bytes(conn):
     """An ocean tile far from the data is an empty (zero-length) payload —
     a valid 'nothing here', not an error."""
-    run_id = store_overlap(conn, _RESULT, effort_source="e", carbon_source="c")
+    run_id = store_overlap(conn, _RESULT, effort_source="e", carbon_source="c", effort_year=2012)
 
     assert cells_tile_mvt(conn, run_id, z=10, x=0, y=0) == b""
 

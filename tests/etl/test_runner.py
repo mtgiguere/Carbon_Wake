@@ -53,6 +53,7 @@ def test_the_runner_turns_a_zip_into_a_stored_ground_truth_run(conn, year_zip):
         conn=conn,
         effort_source="GFW fleet-daily v3, 2012 (test archive)",
         carbon_source="Diesing 2021 (committed crop)",
+        effort_year=2012,
     )
 
     result = load_overlap(conn, run_id)
@@ -87,6 +88,7 @@ def test_the_runner_records_the_callers_provenance(conn, year_zip):
         conn=conn,
         effort_source="effort-source-text",
         carbon_source="carbon-source-text",
+        effort_year=2012,
     )
 
     row = conn.execute(

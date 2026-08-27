@@ -12,6 +12,10 @@ CREATE TABLE IF NOT EXISTS etl_run (
     created_at              timestamptz NOT NULL DEFAULT now(),
     effort_source           text NOT NULL,
     carbon_source           text NOT NULL,
+    -- The effort data's year: provenance the estimate layer PRICES with
+    -- (gear widths are year-specific, ADR-0012c). AIS-based effort does not
+    -- exist before 2012.
+    effort_year             integer NOT NULL CHECK (effort_year >= 2012),
     effort_layer_label      text NOT NULL,
     cells_mapped            integer NOT NULL CHECK (cells_mapped >= 0),
     cells_unmapped          integer NOT NULL CHECK (cells_unmapped >= 0),
