@@ -35,11 +35,28 @@
     <h1>Trawl Carbon Atlas — North Sea</h1>
     <div class="label">Effort layer: {{ effort_layer_label }}</div>
     <div id="legend">
-      <div><span class="swatch" style="background:#fee08b"></span>lighter trawling on mapped carbon</div>
-      <div><span class="swatch" style="background:#a50026"></span>heavier trawling on mapped carbon</div>
+      <div><span class="swatch" style="background:#fee08b"></span>lighter trawling on mapped carbon (h/km²)</div>
+      <div><span class="swatch" style="background:#a50026"></span>heavier trawling on mapped carbon (h/km²)</div>
       <div><span class="swatch" style="background:#9aa5ad"></span>trawling where carbon is unmapped (not zero — unknown)</div>
     </div>
     <div id="status">loading…</div>
+    <div id="estimate" hidden>
+      <hr style="border:none;border-top:1px solid #ddd;margin:10px 0" />
+      <div id="estimate-range"></div>
+      <div id="preset-detail" hidden></div>
+      <div style="margin-top:8px">
+        <input id="preset-slider" type="range" step="1" style="width:100%" />
+        <div style="display:flex;justify-content:space-between;font-size:11px;color:#666">
+          <span>strongest correction</span>
+          <button id="show-range" style="font-size:11px">show full range</button>
+          <span>highest estimate</span>
+        </div>
+      </div>
+      <details id="caveats" style="margin-top:8px">
+        <summary style="cursor:pointer">model caveats &amp; coverage</summary>
+        <ul id="caveat-list" style="margin:6px 0 0 16px;padding:0"></ul>
+      </details>
+    </div>
   </div>
   <div id="attrib">
     Effort: Powered by Global Fishing Watch (CC BY-NC 4.0) &middot;

@@ -91,8 +91,23 @@ def test_the_overlay_is_visible_as_measured_pixels(live_server, transactional_db
         page = browser.new_page(viewport={"width": 900, "height": 700})
         page.goto(live_server.url + "/?basemap=none")
         page.wait_for_function("window.__atlas && window.__atlas.hasOverlay === true")
-        # Dive to the fixture's German Bight footprint so the cells fill the
-        # frame — the overlay must be judged where the data is.
+
+        # FIRST: the overlay must be visible at the DEFAULT zoom. At z5 a
+        # 0.01-degree cell is subpixel and antialiases into invisibility —
+        # the first-run screenshot caught an empty North Sea while every
+        # DOM/network check passed (the contract's 0.4px road-layer story,
+        # replayed). Low-zoom tiles now aggregate to 0.1-degree bins; this
+        # assertion keeps the default view honest forever.
+        _settle(page, "window.__atlas.map.triggerRepaint()")
+        _settle(page, "window.__atlas.setOverlayVisible(false)")
+        default_off = page.screenshot()
+        _settle(page, "window.__atlas.setOverlayVisible(true)")
+        default_on = page.screenshot()
+        default_signal = _changed_pixels(default_on, default_off)
+        assert default_signal > 300, f"default-zoom overlay signal={default_signal}"
+
+        # THEN dive to the fixture's German Bight footprint so the cells fill
+        # the frame — per-cell rendering judged where the data is.
         _settle(page, "window.__atlas.map.jumpTo({center: [7.6, 53.79], zoom: 9})")
 
         _settle(page, "window.__atlas.setOverlayVisible(false)")
