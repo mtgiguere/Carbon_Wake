@@ -16,7 +16,13 @@ from psycopg import conninfo
 SECRET_KEY = os.environ.get("CARBON_ATLAS_SECRET_KEY", "dev-only-insecure-secret-key")
 
 DEBUG = os.environ.get("CARBON_ATLAS_DEBUG", "") == "1"
-ALLOWED_HOSTS = [h for h in os.environ.get("CARBON_ATLAS_ALLOWED_HOSTS", "").split(",") if h]
+# Local hosts by default so `manage.py runserver` works out of the box even
+# with DEBUG=False (Django refuses an empty list); deployment sets the real
+# hostnames via CARBON_ATLAS_ALLOWED_HOSTS.
+ALLOWED_HOSTS = [h for h in os.environ.get("CARBON_ATLAS_ALLOWED_HOSTS", "").split(",") if h] or [
+    "localhost",
+    "127.0.0.1",
+]
 
 INSTALLED_APPS = [
     "django.contrib.staticfiles",
@@ -25,8 +31,16 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    # WhiteNoise serves /static/ through the real middleware stack in EVERY
+    # mode — bare runserver with DEBUG=False serves none at all, which shipped
+    # as a white map stuck at 'loading…'. Finders mode serves straight from
+    # the source tree; deployment (step 7) revisits with collectstatic.
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.middleware.common.CommonMiddleware",
 ]
+
+WHITENOISE_USE_FINDERS = True
+WHITENOISE_AUTOREFRESH = True
 
 ROOT_URLCONF = "carbon_atlas.web.urls"
 
