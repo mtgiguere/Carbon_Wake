@@ -1,0 +1,52 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Trawl Carbon Atlas</title>
+  <link rel="stylesheet" href="{% static 'vendor/maplibre/maplibre-gl.css' %}" />
+  <style>
+    html, body { margin: 0; height: 100%; font-family: system-ui, sans-serif; }
+    #map { position: absolute; inset: 0; }
+    #panel {
+      position: absolute; top: 12px; left: 12px; z-index: 2; max-width: 380px;
+      background: rgba(255, 255, 255, 0.94); border-radius: 8px; padding: 12px 14px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25); font-size: 13px; line-height: 1.45;
+    }
+    #panel h1 { font-size: 16px; margin: 0 0 6px; }
+    #panel .label { color: #444; }
+    #legend { margin-top: 8px; }
+    #legend .swatch {
+      display: inline-block; width: 12px; height: 12px; margin-right: 6px;
+      vertical-align: -1px; border: 1px solid rgba(0, 0, 0, 0.25);
+    }
+    #status { margin-top: 8px; color: #666; }
+    #attrib {
+      position: absolute; bottom: 0; left: 0; right: 0; z-index: 2;
+      background: rgba(255, 255, 255, 0.9); font-size: 11px; color: #333;
+      padding: 4px 8px; text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <div id="panel">
+    <h1>Trawl Carbon Atlas — North Sea</h1>
+    <div class="label">Effort layer: {{ effort_layer_label }}</div>
+    <div id="legend">
+      <div><span class="swatch" style="background:#fee08b"></span>lighter trawling on mapped carbon</div>
+      <div><span class="swatch" style="background:#a50026"></span>heavier trawling on mapped carbon</div>
+      <div><span class="swatch" style="background:#9aa5ad"></span>trawling where carbon is unmapped (not zero — unknown)</div>
+    </div>
+    <div id="status">loading…</div>
+  </div>
+  <div id="attrib">
+    Effort: Powered by Global Fishing Watch (CC BY-NC 4.0) &middot;
+    Seafloor carbon: Diesing et&nbsp;al. 2021, PANGAEA (CC-BY-4.0) &middot;
+    Basemap: &copy; OpenStreetMap contributors (ODbL) via OpenFreeMap
+  </div>
+  <script src="{% static 'vendor/maplibre/maplibre-gl.js' %}"></script>
+  <script src="{% static 'atlas.js' %}"></script>
+</body>
+</html>

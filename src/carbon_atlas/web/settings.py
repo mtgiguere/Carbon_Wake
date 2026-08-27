@@ -7,6 +7,7 @@ dependency.
 """
 
 import os
+from pathlib import Path
 
 from psycopg import conninfo
 
@@ -18,6 +19,7 @@ DEBUG = os.environ.get("CARBON_ATLAS_DEBUG", "") == "1"
 ALLOWED_HOSTS = [h for h in os.environ.get("CARBON_ATLAS_ALLOWED_HOSTS", "").split(",") if h]
 
 INSTALLED_APPS = [
+    "django.contrib.staticfiles",
     "rest_framework",
 ]
 
@@ -27,6 +29,18 @@ MIDDLEWARE = [
 ]
 
 ROOT_URLCONF = "carbon_atlas.web.urls"
+
+TEMPLATES = [
+    {
+        "BACKEND": "django.template.backends.django.DjangoTemplates",
+        "DIRS": [Path(__file__).parent / "templates"],
+        "APP_DIRS": False,
+        "OPTIONS": {"context_processors": []},
+    }
+]
+
+STATIC_URL = "/static/"
+STATICFILES_DIRS = [Path(__file__).parent / "static"]
 
 _DSN = os.environ.get(
     "CARBON_ATLAS_DB_URL", "postgresql://carbon_atlas:carbon_atlas_dev@localhost:5434/carbon_atlas"

@@ -1,10 +1,11 @@
-"""DRF views for the read-only v1 API."""
+"""DRF views for the read-only v1 API, plus the map page."""
 
 from dataclasses import asdict
 
 import psycopg
 from django.db import connection
 from django.http import HttpResponse
+from django.views.generic import TemplateView
 from rest_framework.exceptions import NotFound, ParseError
 from rest_framework.request import Request
 from rest_framework.response import Response
@@ -18,6 +19,7 @@ from carbon_atlas.db.store import (
     trawled_cells_intersecting,
 )
 from carbon_atlas.disturbance import DEFAULT_GEAR_PROFILES
+from carbon_atlas.effort.gears import EFFORT_LAYER_LABEL
 from carbon_atlas.effort.grid import BoundingBox
 from carbon_atlas.estimates import (
     ESTIMATE_CAVEATS,
@@ -212,3 +214,16 @@ class RunTilesView(APIView):
             raise NotFound(str(exc)) from exc
         tile = cells_tile_mvt(conn, run_id, z=z, x=x, y=y)
         return HttpResponse(tile, content_type="application/vnd.mapbox-vector-tile")
+
+
+class AtlasPageView(TemplateView):
+    """The map page (ADR-0015). The template carries the honesty text — the
+    ADR-0009 label verbatim and the full attribution stack — and atlas.js
+    renders the newest run's tiles under the visual-honesty policy."""
+
+    template_name = "atlas.html"
+
+    def get_context_data(self, **kwargs) -> dict:
+        context = super().get_context_data(**kwargs)
+        context["effort_layer_label"] = EFFORT_LAYER_LABEL
+        return context
