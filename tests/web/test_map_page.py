@@ -61,6 +61,7 @@ def test_static_assets_are_actually_served_over_http(client):
     ):
         response = client.get(path)
         assert response.status_code == 200, f"{path} -> {response.status_code}"
+        response.close()  # WhiteNoise streams the file; leaving it open leaks the handle
 
 
 def test_every_referenced_asset_resolves_through_staticfiles(page):
