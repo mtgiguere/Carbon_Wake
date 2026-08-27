@@ -1,0 +1,48 @@
+# The production stack (deployment step): PostGIS + the web app + Caddy for
+# automatic TLS. Run on the VM as:
+#   docker compose -f docker-compose.prod.yml up -d
+# Required environment (put in a `.env` beside this file — see DEPLOY.md):
+#   CARBON_ATLAS_DOMAIN       e.g. atlas.example.org  (Caddy gets its TLS cert)
+#   CARBON_ATLAS_SECRET_KEY   a long random string
+#   CARBON_ATLAS_DB_PASSWORD  the database password
+services:
+  postgis:
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_DB: carbon_atlas
+      POSTGRES_USER: carbon_atlas
+      POSTGRES_PASSWORD: ${CARBON_ATLAS_DB_PASSWORD:?set CARBON_ATLAS_DB_PASSWORD in .env}
+    volumes:
+      - postgis_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U carbon_atlas -d carbon_atlas"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  web:
+    build: .
+    environment:
+      CARBON_ATLAS_SECRET_KEY: ${CARBON_ATLAS_SECRET_KEY:?set CARBON_ATLAS_SECRET_KEY in .env}
+      CARBON_ATLAS_ALLOWED_HOSTS: ${CARBON_ATLAS_ALLOWED_HOSTS:-${CARBON_ATLAS_DOMAIN}}
+      CARBON_ATLAS_DB_URL: postgresql://carbon_atlas:${CARBON_ATLAS_DB_PASSWORD}@postgis:5432/carbon_atlas
+    depends_on:
+      postgis:
+        condition: service_healthy
+
+  caddy:
+    image: caddy:2
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      CARBON_ATLAS_DOMAIN: ${CARBON_ATLAS_DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+    depends_on:
+      - web
+
+volumes:
+  postgis_data:
+  caddy_data:

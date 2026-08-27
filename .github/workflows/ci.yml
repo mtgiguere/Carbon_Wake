@@ -13,6 +13,15 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # The deployment image must always build — a rotted Dockerfile discovered
+  # on deploy day is the wrong time. Runs in parallel with the quality gates.
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the deployment image
+        run: docker build -t carbon-atlas-web .
+
   quality:
     runs-on: ubuntu-latest
     services:
