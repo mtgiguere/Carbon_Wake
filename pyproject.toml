@@ -43,8 +43,11 @@ dev = [
 where = ["src"]
 
 [tool.setuptools.package-data]
-# The ETL-owned schema ships with the code that applies it (ADR-0010).
+# The ETL-owned schema ships with the code that applies it (ADR-0010); the
+# map page's template and static assets ship with the web package so the
+# deployed image serves them (ADR-0015 vendoring).
 "carbon_atlas.db" = ["*.sql"]
+"carbon_atlas.web" = ["templates/*.html", "static/*.js", "static/vendor/maplibre/*"]
 
 # ---------------------------------------------------------------------------
 # pytest
@@ -68,6 +71,10 @@ filterwarnings = ["error"]
 [tool.coverage.run]
 branch = true
 source = ["carbon_atlas"]
+# wsgi.py runs only under gunicorn — the omit ADR-0006 pre-authorized for
+# exactly this file class ("settings, migrations, wsgi/asgi"). settings.py
+# stays covered (it executes under pytest).
+omit = ["*/web/wsgi.py"]
 
 [tool.coverage.report]
 show_missing = true

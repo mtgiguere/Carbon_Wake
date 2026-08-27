@@ -188,7 +188,13 @@ suites grow, the fast unit run is `pytest -m "not integration and not visual"`.
    `mapped` flag so "unmapped ≠ zero" is expressible in the style. Next:
    the page itself — static overlay with SwiftShader pixel tests
    (Blind spot B), then the preset slider and uncertainty display.
-7. Docker Compose deployment, self-hosted end to end.
+7. **Docker Compose deployment** ← we are here. The production stack exists
+   and was first-run VERIFIED locally end to end (image built, Caddy → 
+   gunicorn → WhiteNoise → PostGIS, real data restored, map rendered):
+   Dockerfile (entrypoint applies schema + ANALYZE — a fresh restore without
+   statistics renders an empty map), docker-compose.prod.yml, Caddyfile
+   (automatic TLS), DEPLOY.md runbook with only executed steps, and CI
+   builds the image on every push. Remaining: a VM and DNS — owner-side.
 8. (Later) Keycloak + contributor accounts.
 
 Each step is its own set of RED→GREEN cycles. We do not start a step until the

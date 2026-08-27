@@ -1,0 +1,8 @@
+# Caddy terminates TLS and proxies everything to the web container.
+# CARBON_ATLAS_DOMAIN is the site address: a real hostname in production
+# (Caddy fetches its Let's Encrypt certificate automatically), or ":80" to
+# serve plain HTTP on the VM's IP for smoke-testing before DNS exists.
+{$CARBON_ATLAS_DOMAIN} {
+	encode gzip
+	reverse_proxy web:8000
+}
