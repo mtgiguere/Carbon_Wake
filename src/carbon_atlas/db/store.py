@@ -186,19 +186,54 @@ def load_overlap(conn: psycopg.Connection, run_id: int) -> OverlapResult:
     return OverlapResult(trawled=trawled, unmapped_effort=unmapped)
 
 
-_TILE_MVT = (
+_TILE_MVT_CELLS = (
     "SELECT ST_AsMVT(tile_rows, 'cells', 4096, 'geom') FROM ("
     " SELECT ST_AsMVTGeom(ST_Transform(geom, 3857), ST_TileEnvelope(%(z)s, %(x)s, %(y)s),"
     "                     4096, 64, true) AS geom,"
     "        lat_index, lon_index, fishing_hours,"
     "        fishing_hours_trawlers, fishing_hours_dredge_fishing,"
     "        oc_density_mean, oc_density_uncertainty,"
+    "        ST_Area(geom::geography) / 1e6 AS area_km2,"
     "        (oc_density_mean IS NOT NULL) AS mapped"
     " FROM overlap_cell"
     " WHERE run_id = %(run_id)s"
     "   AND geom && ST_Transform(ST_TileEnvelope(%(z)s, %(x)s, %(y)s), 4326)"
     ") tile_rows WHERE geom IS NOT NULL"
 )
+
+# Below z8 a 0.01-degree cell is subpixel; raw cells antialias into
+# invisibility (the contract's 0.4px road-layer story). Aggregate to
+# 0.1-degree bins per mapped-class, with true seabed area aboard so the style
+# colors by hours per km2 at every zoom. The carbon pair does not survive
+# aggregation: a bin-average would be a new, unpublished number.
+_TILE_MVT_BINS = (
+    "SELECT ST_AsMVT(tile_rows, 'cells', 4096, 'geom') FROM ("
+    " SELECT ST_AsMVTGeom("
+    "          ST_Transform(ST_SetSRID(ST_MakeEnvelope("
+    "            bin_lon_index / 10.0, bin_lat_index / 10.0,"
+    "            (bin_lon_index + 1) / 10.0, (bin_lat_index + 1) / 10.0), 4326), 3857),"
+    "          ST_TileEnvelope(%(z)s, %(x)s, %(y)s), 4096, 64, true) AS geom,"
+    "        bin_lat_index, bin_lon_index, mapped, fishing_hours,"
+    "        fishing_hours_trawlers, fishing_hours_dredge_fishing, cells, area_km2"
+    " FROM ("
+    "   SELECT floor(lat_index / 10.0)::int AS bin_lat_index,"
+    "          floor(lon_index / 10.0)::int AS bin_lon_index,"
+    "          (oc_density_mean IS NOT NULL) AS mapped,"
+    "          sum(fishing_hours) AS fishing_hours,"
+    "          sum(fishing_hours_trawlers) AS fishing_hours_trawlers,"
+    "          sum(fishing_hours_dredge_fishing) AS fishing_hours_dredge_fishing,"
+    "          count(*) AS cells,"
+    "          sum(ST_Area(geom::geography)) / 1e6 AS area_km2"
+    "   FROM overlap_cell"
+    "   WHERE run_id = %(run_id)s"
+    "     AND geom && ST_Transform(ST_TileEnvelope(%(z)s, %(x)s, %(y)s), 4326)"
+    "   GROUP BY 1, 2, 3"
+    " ) binned"
+    ") tile_rows WHERE geom IS NOT NULL"
+)
+
+#: Below this zoom, tiles aggregate to 0.1-degree bins.
+CELL_TILE_MIN_ZOOM = 8
 
 
 def cells_tile_mvt(conn: psycopg.Connection, run_id: int, *, z: int, x: int, y: int) -> bytes:
@@ -214,7 +249,8 @@ def cells_tile_mvt(conn: psycopg.Connection, run_id: int, *, z: int, x: int, y: 
     """
     if conn.execute("SELECT 1 FROM etl_run WHERE id = %s", (run_id,)).fetchone() is None:
         raise KeyError(f"no etl_run with id {run_id}")
-    row = conn.execute(_TILE_MVT, {"run_id": run_id, "z": z, "x": x, "y": y}).fetchone()
+    query = _TILE_MVT_CELLS if z >= CELL_TILE_MIN_ZOOM else _TILE_MVT_BINS
+    row = conn.execute(query, {"run_id": run_id, "z": z, "x": x, "y": y}).fetchone()
     return bytes(row[0]) if row[0] is not None else b""
 
 
