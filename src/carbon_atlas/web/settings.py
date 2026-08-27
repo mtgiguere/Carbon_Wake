@@ -31,8 +31,16 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    # WhiteNoise serves /static/ through the real middleware stack in EVERY
+    # mode — bare runserver with DEBUG=False serves none at all, which shipped
+    # as a white map stuck at 'loading…'. Finders mode serves straight from
+    # the source tree; deployment (step 7) revisits with collectstatic.
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.middleware.common.CommonMiddleware",
 ]
+
+WHITENOISE_USE_FINDERS = True
+WHITENOISE_AUTOREFRESH = True
 
 ROOT_URLCONF = "carbon_atlas.web.urls"
 

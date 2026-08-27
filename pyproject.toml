@@ -20,6 +20,7 @@ dependencies = [
     "psycopg[binary]>=3.2",  # arrived with carbon_atlas.db (PostGIS store, ADR-0010)
     "django>=5.1",           # arrived with carbon_atlas.web (v1 API, ADR-0011)
     "djangorestframework>=3.15",  # arrived with carbon_atlas.api (v1 API, ADR-0011)
+    "whitenoise>=6.7",       # serves /static/ in every mode (map page, ADR-0015)
 ]
 
 [project.optional-dependencies]
