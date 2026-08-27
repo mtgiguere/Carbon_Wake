@@ -109,7 +109,10 @@ def test_the_range_is_the_default_view_and_a_preset_is_an_explicit_labeled_choic
         page.locator("#show-range").click()
         assert panel.locator("#estimate-range").is_visible()
 
-        # 5. The caveats travel with the number, one gesture away (the
+        # 5. A single run means no time axis: the year control stays hidden.
+        assert not page.locator("#year-control").is_visible()
+
+        # 6. The caveats travel with the number, one gesture away (the
         #    policy's rule): opening the disclosure reveals the saturation
         #    bound's own assumptions and the coverage line.
         panel.locator("#caveats summary").click()
