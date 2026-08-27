@@ -82,7 +82,12 @@ def test_the_range_is_the_default_view_and_a_preset_is_an_explicit_labeled_choic
         assert "inferred" in detail.lower()
 
         # 3. The Sala stop reports atmospheric CO2 as UNKNOWN — the source
-        #    called it that; the panel must not invent a figure.
+        #    called it that; the panel must not invent a figure. It also
+        #    shows the EXACT tonne count with separators: compact units alone
+        #    once hid the 1000x disagreement behind one letter (3.98 kt vs
+        #    3.98 Mt), which the owner read as "the slider changes nothing".
+        #    And it states the map-invariance fact instead of leaving the
+        #    user to wonder why the map did not move.
         max_index = page.locator("#preset-slider").evaluate("el => el.max")
         page.locator("#preset-slider").evaluate(
             f"el => {{ el.value = {max_index}; el.dispatchEvent(new Event('input')) }}"
@@ -91,6 +96,10 @@ def test_the_range_is_the_default_view_and_a_preset_is_an_explicit_labeled_choic
         assert "Sala" in sala
         assert "10.1038/s41586-021-03371-z" in sala
         assert "unknown" in sala.lower()
+        import re
+
+        assert re.search(r"\(\d{1,3}(,\d{3})+ t\)", sala), sala  # exact tonnes, separated
+        assert "spatial pattern does not change" in sala
 
         # 4. And the user can always return to the honest default.
         page.locator("#show-range").click()

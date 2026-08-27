@@ -133,11 +133,20 @@
     var t = kg / 1000.0;
     if (t >= 1e6) return (t / 1e6).toPrecision(3) + " Mt";
     if (t >= 1e3) return (t / 1e3).toPrecision(3) + " kt";
-    return t.toLocaleString(undefined, { maximumSignificantDigits: 3 }) + " t";
+    return t.toLocaleString("en-US", { maximumSignificantDigits: 3 }) + " t";
+  }
+
+  // Compact units alone once hid a 1000x disagreement behind one letter
+  // (3.98 kt vs 3.98 Mt — same digits). The exact tonne count with thousands
+  // separators makes the order of magnitude impossible to miss.
+  function exactTonnes(kg) {
+    return Math.round(kg / 1000.0).toLocaleString("en-US") + " t";
   }
 
   function co2Text(quantity) {
-    return tonnes(quantity.mean_kg) + " ± " + tonnes(quantity.uncertainty_kg);
+    var text = tonnes(quantity.mean_kg) + " ± " + tonnes(quantity.uncertainty_kg);
+    if (quantity.mean_kg >= 1e6) text += " (" + exactTonnes(quantity.mean_kg) + ")";
+    return text;
   }
 
   function endText(entry) {
@@ -183,6 +192,11 @@
         : "does not credit additionality"), { style: "color:#555" })
     );
     box.appendChild(el("div", entry.preset.citation, { style: "color:#555;font-size:11px" }));
+    box.appendChild(
+      el("div", "Note: the map's spatial pattern does not change with the preset — " +
+        "every cell scales by the same factor; only the magnitude moves.",
+        { style: "color:#777;font-size:11px;margin-top:4px" })
+    );
     document.getElementById("estimate-range").hidden = true;
     box.hidden = false;
   }
