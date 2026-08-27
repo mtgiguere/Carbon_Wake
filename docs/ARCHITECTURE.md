@@ -140,6 +140,9 @@ tests/
                          a service container in CI) — the schema's constraints are the
                          behavior under test, so no database means FAIL, not skip
   etl/                   the runner end to end: real zip -> scoped overlap -> stored run
+  web/                   the map page: HTML/asset contract tests + the @visual pixel test
+                         (headless Chromium on SwiftShader; noise floor and signal both
+                         measured in-test, and the guard was RED-demoed — Blind spots B+C)
   fixtures/
     real/                small, committed, redistributable real-format samples
       gfw/               verbatim head of a real GFW fleet-daily CSV (see its README)

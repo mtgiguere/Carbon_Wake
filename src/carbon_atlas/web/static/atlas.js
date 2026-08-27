@@ -75,6 +75,8 @@
   }
 
   window.__atlas = {
+    map: map,
+    hasOverlay: false,
     setOverlayVisible: function (visible) {
       var value = visible ? "visible" : "none";
       ["cells-mapped", "cells-unmapped"].forEach(function (id) {
@@ -100,6 +102,7 @@
         }
         var run = body.runs[0]; // newest first, per the API contract
         addOverlay(run.id);
+        window.__atlas.hasOverlay = true;
         statusBox.textContent =
           "run " + run.id + ": " + run.cells_mapped.toLocaleString() +
           " cells on mapped carbon, " + run.cells_unmapped.toLocaleString() +

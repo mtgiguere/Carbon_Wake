@@ -34,6 +34,8 @@ dev = [
     "pip-audit>=2.7",   # dependency vulnerability scan (OSV/PyPI advisories)
     "bandit>=1.7",      # static security analysis of our own source
     "mapbox-vector-tile>=2.0",  # decodes real MVT bytes in tile tests (ADR-0015)
+    "playwright>=1.47",  # drives headless Chromium for the Blind-spot-B pixel tests
+    "pillow>=10.0",      # measures pixel diffs in those tests
 ]
 
 [tool.setuptools.packages.find]

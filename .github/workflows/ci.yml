@@ -45,6 +45,11 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
 
+      # The Blind-spot-B pixel tests render the real map in headless Chromium
+      # on software WebGL — visual verification runs in CI, not on trust.
+      - name: Install Playwright Chromium
+        run: playwright install --with-deps chromium
+
       # Gate 1 — lint
       - name: Lint (ruff check)
         run: ruff check .
