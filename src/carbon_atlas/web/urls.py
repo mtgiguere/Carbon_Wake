@@ -3,6 +3,7 @@
 from django.urls import path
 
 from carbon_atlas.api.views import (
+    AtlasPageView,
     PresetCatalogView,
     RunCellsView,
     RunEstimateView,
@@ -11,6 +12,7 @@ from carbon_atlas.api.views import (
 )
 
 urlpatterns = [
+    path("", AtlasPageView.as_view()),
     path("api/presets/", PresetCatalogView.as_view()),
     path("api/runs/", RunListView.as_view()),
     path("api/runs/<int:run_id>/cells/", RunCellsView.as_view()),
