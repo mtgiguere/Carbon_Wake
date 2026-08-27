@@ -34,8 +34,12 @@ _RESULT = OverlapResult(
 def test_runs_are_served_newest_first_with_full_provenance(client, raw_conn):
     """Both runs come through with sources, the honest label, and both sides'
     totals — newest first, ready for the map's default view."""
-    first = store_overlap(raw_conn, _RESULT, effort_source="e1", carbon_source="c1")
-    second = store_overlap(raw_conn, _RESULT, effort_source="e2", carbon_source="c2")
+    first = store_overlap(
+        raw_conn, _RESULT, effort_source="e1", carbon_source="c1", effort_year=2012
+    )
+    second = store_overlap(
+        raw_conn, _RESULT, effort_source="e2", carbon_source="c2", effort_year=2012
+    )
 
     response = client.get("/api/runs/")
 
@@ -46,6 +50,7 @@ def test_runs_are_served_newest_first_with_full_provenance(client, raw_conn):
     assert newest["effort_source"] == "e2"
     assert newest["carbon_source"] == "c2"
     assert "midwater" in newest["effort_layer_label"].lower()
+    assert newest["effort_year"] == 2012
     assert newest["cells_mapped"] == 1
     assert newest["cells_unmapped"] == 1
     assert math.isclose(newest["fishing_hours_mapped"], 15.0057, rel_tol=1e-12)

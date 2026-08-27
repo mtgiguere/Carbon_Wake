@@ -44,7 +44,7 @@ _EXPECTED_DISTURBED = disturbed_from_cells(_RESULT.trawled, DEFAULT_GEAR_PROFILE
 
 @pytest.fixture
 def run_id(raw_conn):
-    return store_overlap(raw_conn, _RESULT, effort_source="e", carbon_source="c")
+    return store_overlap(raw_conn, _RESULT, effort_source="e", carbon_source="c", effort_year=2012)
 
 
 @pytest.fixture
@@ -123,6 +123,25 @@ def test_the_payload_discloses_coverage_profiles_and_caveats(payload):
     assert "uncertaint" in caveats
 
 
+def test_a_runs_estimate_is_priced_with_its_own_years_gear_widths(client, raw_conn):
+    """The point of year-aware runs (ADR-0012c): a 2024 run resolves 2024's
+    effort-weighted widths (63.55 m — computed from 39,419 vessels), NOT
+    2012's coverage-biased 77.28 m. Pricing with another year's fleet would
+    silently mis-scale every figure in the payload."""
+    run_id = store_overlap(
+        raw_conn, _RESULT, effort_source="e", carbon_source="c", effort_year=2024
+    )
+
+    response = client.get(f"/api/runs/{run_id}/estimate/")
+
+    assert response.status_code == 200
+    body = response.json()
+    trawlers = next(p for p in body["gear_profiles"] if p["key"] == "trawlers")
+    assert math.isclose(trawlers["gear_width_m"], 63.55, rel_tol=1e-9)
+    assert "2024" in trawlers["provenance"]
+    assert "39,419" in trawlers["provenance"]
+
+
 def test_a_run_with_no_mapped_effort_estimates_an_honest_zero(client, raw_conn):
     """All-unmapped effort: disturbed 0 ± 0 and zero CO2 under every preset —
     a valid, reportable answer whose coverage block shows WHY it is zero."""
@@ -134,6 +153,7 @@ def test_a_run_with_no_mapped_effort_estimates_an_honest_zero(client, raw_conn):
         ),
         effort_source="e",
         carbon_source="c",
+        effort_year=2012,
     )
 
     response = client.get(f"/api/runs/{run_id}/estimate/")

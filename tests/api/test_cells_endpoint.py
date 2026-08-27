@@ -39,7 +39,7 @@ _RESULT = OverlapResult(
 
 @pytest.fixture
 def run_id(raw_conn):
-    return store_overlap(raw_conn, _RESULT, effort_source="e", carbon_source="c")
+    return store_overlap(raw_conn, _RESULT, effort_source="e", carbon_source="c", effort_year=2012)
 
 
 def test_cells_in_a_bbox_are_geojson_features_with_the_full_carbon_pair(client, run_id):

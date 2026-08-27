@@ -428,3 +428,35 @@ by decoding real tiles (dev dependency `mapbox-vector-tile`), and every map
 layer still owes a SwiftShader pixel test before it is called visible
 (Blind spot B). (c) Vendored MapLibre is pinned and upgraded deliberately,
 like any dependency.
+
+
+---
+
+## 2026-08-27 — ADR-0016: Runs carry their effort year; estimates price with that year's fleet
+
+**Context.** ADR-0012(c) required per-year gear-width recomputation. Doing the
+computation for all product years (2012–2024) surfaced a finding: 2012's
+77.28 m effort-weighted trawler width is a coverage artifact (5,654 classified
+vessels, early AIS skewed large) — the width settles at ~63–65 m once coverage
+matures (39,419 vessels by 2024). Pricing any run with another year's fleet is
+therefore a real error, and the estimate endpoint was one 2024 run away from
+committing it silently.
+
+**Decision.**
+
+1. `etl_run` gains **`effort_year`** (NOT NULL, CHECK >= 2012 — AIS effort
+   does not exist earlier). It is load-bearing provenance, not annotation.
+2. The pure layer exposes **`gear_profiles_for_year(year)`** for every product
+   year, each profile's provenance naming the year and its vessel count; an
+   uncovered year raises, naming itself — never a silent fallback to another
+   fleet. `DEFAULT_GEAR_PROFILES` remains as the 2012 seam.
+3. **The estimate endpoint resolves profiles from the run's own year**, and
+   serves them in the payload (test: a 2024 run shows 63.55 m / "39,419
+   vessels", not 2012's 77.28 m).
+4. The 2012 coverage artifact is recorded in SCIENCE_BASIS as a known mild
+   high bias on the 2012 run's swept area.
+
+**Consequences.** (a) Multi-year runs (the year slider, trend content) are
+now safe to load. (b) Schema evolved by recreate per ADR-0013; the working
+database was rebuilt and re-run. (c) Adding product years (GFW v4, 2025+)
+means extending the width table with its documented one-script recomputation.

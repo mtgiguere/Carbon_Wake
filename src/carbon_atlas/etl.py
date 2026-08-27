@@ -33,6 +33,7 @@ def run_overlap_etl(
     conn: psycopg.Connection,
     effort_source: str,
     carbon_source: str,
+    effort_year: int,
 ) -> int:
     """Stream, scope, aggregate, join, store. Returns the stored run's id."""
     with DensityRasterPair(carbon_mean, carbon_uncertainty) as pair:
@@ -45,4 +46,10 @@ def run_overlap_etl(
         result = overlap_effort_with_carbon(effort, pair.sample)
 
     apply_schema(conn)
-    return store_overlap(conn, result, effort_source=effort_source, carbon_source=carbon_source)
+    return store_overlap(
+        conn,
+        result,
+        effort_source=effort_source,
+        carbon_source=carbon_source,
+        effort_year=effort_year,
+    )

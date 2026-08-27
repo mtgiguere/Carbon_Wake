@@ -71,41 +71,85 @@ class DisturbedCarbon:
                 raise ValueError(f"{name} must be finite and non-negative; got {value!r}")
 
 
-#: One profile per included GFW gear class (the ADR-0009 seam). Every figure
-#: is citable; the exact computation of the derived widths is in ADR-0012.
-DEFAULT_GEAR_PROFILES: dict[str, GearProfile] = {
-    "trawlers": GearProfile(
-        key="trawlers",
-        gear_width_m=77.28,
-        towing_speed_knots=3.0,
-        penetration_depth_m=0.0244,
-        provenance=(
-            "Treated as otter trawls — Sala 2021's own default for unclassified "
-            "vessels; per ADR-0009 the GFW class also contains midwater trawlers, "
-            "so figures derived from it overstate bottom contact where midwater "
-            "effort is common and must carry the honest label. Width 77.28 m: "
-            "effort-weighted mean over GFW fishing-vessels-v3 (year 2012, 5,654 "
-            "vessels) of Sala 2021's Eigaard et al. 2016 relationship "
-            "W = 10.6608 x KW^0.2921 (ADR-0012). Speed 3.0 kn: midpoint of Sala "
-            "2021's 2-4 kn otter-trawl plausibility range (from Eigaard 2016). "
-            "Penetration 2.44 cm: Hiddink et al. 2017 via Sala 2021 / Atwood 2024."
-        ),
-    ),
-    "dredge_fishing": GearProfile(
-        key="dredge_fishing",
-        gear_width_m=26.02,
-        towing_speed_knots=2.25,
-        penetration_depth_m=0.0547,
-        provenance=(
-            "Treated as towed (non-hydraulic) dredges, per ADR-0009. Width "
-            "26.02 m: effort-weighted mean over GFW fishing-vessels-v3 (year "
-            "2012, 105 vessels) of Sala 2021's Eigaard et al. 2016 relationship "
-            "W = 0.3142 x LOA^1.2454 (ADR-0012). Speed 2.25 kn: midpoint of Sala "
-            "2021's 2-2.5 kn dredge plausibility range (from Eigaard 2016). "
-            "Penetration 5.47 cm: Hiddink et al. 2017 via Sala 2021 / Atwood 2024."
-        ),
-    ),
+#: Effort-weighted gear widths per year (meters), computed from GFW's
+#: fishing-vessels-v3 table with Sala 2021's Eigaard relationships applied per
+#: vessel and weighted by that vessel's fishing hours (ADR-0012; recomputed
+#: 2026-08-27 for every product year). The trawler count per year is part of
+#: the provenance: 2012's larger width is itself a coverage artifact — early
+#: AIS skewed toward big vessels (5,654 classified trawlers vs 39,419 by
+#: 2024) — recorded in SCIENCE_BASIS.md.
+_WIDTHS_BY_YEAR: dict[int, tuple[float, int, float, int]] = {
+    # year: (trawler width m, trawler vessels, dredge width m, dredge vessels)
+    2012: (77.28, 5654, 26.02, 105),
+    2013: (67.03, 15010, 19.28, 268),
+    2014: (64.79, 16895, 18.31, 342),
+    2015: (64.40, 16819, 17.54, 404),
+    2016: (64.00, 20730, 16.19, 554),
+    2017: (63.56, 25594, 15.87, 670),
+    2018: (63.48, 27722, 14.95, 730),
+    2019: (63.33, 29302, 14.55, 821),
+    2020: (63.68, 29424, 13.53, 886),
+    2021: (64.28, 32667, 14.22, 959),
+    2022: (64.87, 35684, 14.23, 1013),
+    2023: (64.09, 40968, 13.72, 1315),
+    2024: (63.55, 39419, 13.39, 1546),
 }
+
+
+def gear_profiles_for_year(year: int) -> dict[str, GearProfile]:
+    """That year's gear profiles — widths from that year's fleet, constants
+    (speeds, penetration depths) year-invariant.
+
+    Pricing a run with another year's widths is a real error (the fleet and
+    its AIS coverage change), so an uncovered year raises, naming itself and
+    the covered span — never a silent fallback.
+    """
+    if year not in _WIDTHS_BY_YEAR:
+        raise KeyError(
+            f"no gear profiles for year {year}; the GFW v3 product covers "
+            f"{min(_WIDTHS_BY_YEAR)}-{max(_WIDTHS_BY_YEAR)}"
+        )
+    trawler_width, trawler_count, dredge_width, dredge_count = _WIDTHS_BY_YEAR[year]
+    return {
+        "trawlers": GearProfile(
+            key="trawlers",
+            gear_width_m=trawler_width,
+            towing_speed_knots=3.0,
+            penetration_depth_m=0.0244,
+            provenance=(
+                f"Treated as otter trawls — Sala 2021's own default for unclassified "
+                f"vessels; per ADR-0009 the GFW class also contains midwater trawlers, "
+                f"so figures derived from it overstate bottom contact where midwater "
+                f"effort is common. Width {trawler_width} m: effort-weighted mean over "
+                f"GFW fishing-vessels-v3 (year {year}, {trawler_count:,} vessels) of "
+                f"Sala 2021's Eigaard et al. 2016 relationship W = 10.6608 x KW^0.2921 "
+                f"(ADR-0012). Speed 3.0 kn: midpoint of Sala 2021's 2-4 kn otter-trawl "
+                f"plausibility range (Eigaard 2016). Penetration 2.44 cm: Hiddink et "
+                f"al. 2017 via Sala 2021 / Atwood 2024."
+            ),
+        ),
+        "dredge_fishing": GearProfile(
+            key="dredge_fishing",
+            gear_width_m=dredge_width,
+            towing_speed_knots=2.25,
+            penetration_depth_m=0.0547,
+            provenance=(
+                f"Treated as towed (non-hydraulic) dredges, per ADR-0009. Width "
+                f"{dredge_width} m: effort-weighted mean over GFW fishing-vessels-v3 "
+                f"(year {year}, {dredge_count:,} vessels) of Sala 2021's Eigaard et "
+                f"al. 2016 relationship W = 0.3142 x LOA^1.2454 (ADR-0012). Speed "
+                f"2.25 kn: midpoint of Sala 2021's 2-2.5 kn dredge plausibility range "
+                f"(Eigaard 2016). Penetration 5.47 cm: Hiddink et al. 2017 via Sala "
+                f"2021 / Atwood 2024."
+            ),
+        ),
+    }
+
+
+#: The 2012 profiles under their historical name — the stored 2012 run's
+#: pricing, and the seam existing callers hold. New code should resolve by
+#: the run's own year via :func:`gear_profiles_for_year`.
+DEFAULT_GEAR_PROFILES: dict[str, GearProfile] = gear_profiles_for_year(2012)
 
 
 def swept_area_m2(fishing_hours: float, profile: GearProfile) -> float:
