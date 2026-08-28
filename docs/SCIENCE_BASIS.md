@@ -216,8 +216,10 @@ fuller record.
 3. **Midwater contamination is material here.** The North Sea hosts
    significant midwater trawling (herring, mackerel); ADR-0009's as-published
    gear classes therefore overstate bottom contact non-trivially in some
-   areas. The registry cross-reference (Sala's own method) remains the
-   scheduled remedy.
+   areas. Two candidate remedies are on the roadmap: the registry
+   cross-reference (Sala's own method), and an empirical plume-based filter —
+   a midwater trawler leaves no sediment plume, so AIS-paired satellite plume
+   detections identify bottom contact directly (docs/VALIDATION_SPIKE.md §3).
 4. **The uncertainty band is not a confidence interval.** ±7.2 Mt is the
    linear (fully correlated) propagation of Diesing's per-pixel total
    uncertainty through the chain — an indicative band with a stated
