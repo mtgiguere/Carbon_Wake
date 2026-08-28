@@ -71,8 +71,14 @@ def test_years_swap_coherently_and_the_newest_is_the_default(live_server, transa
         page.goto(live_server.url + "/?basemap=none")
         page.wait_for_function("window.__atlas && window.__atlas.estimate")
 
-        # Newest year (2024) is the default everywhere.
+        # Newest year (2024) is the default everywhere — and the time axis
+        # carries its own honesty note: AIS coverage grew massively across
+        # the years (2012: ~9M global rows; 2024: ~30x that), so year-to-year
+        # jumps must not be read as pure fishing trends.
         assert page.locator("#year-control").is_visible()
+        year_note = page.locator("#year-control").inner_text().lower()
+        assert "coverage" in year_note
+        assert "not" in year_note
         assert "2024" in page.locator("#year-label").inner_text()
         assert "1 cell" in page.locator("#status").inner_text().replace("1 cells", "1 cell")
         assert "2024" in page.locator("#estimate-range").inner_text()
