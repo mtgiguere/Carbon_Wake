@@ -171,3 +171,27 @@ def test_an_unknown_run_is_a_404_naming_the_id(client, db):
 
     assert response.status_code == 404
     assert "31337" in response.json()["detail"]
+
+
+def test_every_preset_entry_is_anchored_in_everyday_units_with_the_citation(payload):
+    """Backlog #6: each preset's aqueous CO2 also arrives as a count of
+    everyday units (typical passenger car-years, EPA factor), mean AND
+    uncertainty, with the anchor's citation and its comparability basis on
+    the entry itself — so both ends of the range can be anchored on screen
+    and every anchored number stays one click from its source."""
+    from carbon_atlas.anchors import PASSENGER_CAR_YEAR
+
+    for entry in payload["estimates"]:
+        anchors = {a["key"]: a for a in entry["anchors"]}
+        car = anchors["passenger_car_year"]
+        assert car["unit_label"] == PASSENGER_CAR_YEAR.unit_label
+        assert math.isclose(
+            car["mean_units"], entry["aqueous_co2"]["mean_kg"] / 4600.0, rel_tol=1e-12
+        )
+        assert math.isclose(
+            car["uncertainty_units"],
+            entry["aqueous_co2"]["uncertainty_kg"] / 4600.0,
+            rel_tol=1e-12,
+        )
+        assert "epa.gov" in car["citation"]
+        assert "aqueous" in car["basis"].lower()

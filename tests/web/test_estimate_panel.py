@@ -121,3 +121,44 @@ def test_the_range_is_the_default_view_and_a_preset_is_an_explicit_labeled_choic
         assert "mapped" in caveats
 
         browser.close()
+
+
+def test_both_ends_of_the_range_are_anchored_in_everyday_units_for_scale_only(
+    live_server, transactional_db
+):
+    """Backlog #6: the range view anchors BOTH ends in the same everyday
+    unit (typical passenger car-years) so the disagreement itself is the
+    message; the anchor declares it is for scale only (aqueous vs tailpipe),
+    and the preset view carries the anchored count with the EPA citation."""
+    from playwright.sync_api import sync_playwright
+
+    _seed_real_run()
+
+    with sync_playwright() as pw:
+        browser = pw.chromium.launch(args=["--use-angle=swiftshader"])
+        page = browser.new_page(viewport={"width": 1100, "height": 800})
+        page.goto(live_server.url + "/?basemap=none")
+        page.wait_for_function("window.__atlas && window.__atlas.estimate")
+
+        panel = page.locator("#estimate")
+
+        # 1. Range view: one anchor line naming BOTH ends' car-year counts,
+        #    with its scale-only basis stated on the panel, not in a footnote.
+        anchor = panel.locator("#estimate-range .anchor")
+        assert anchor.count() == 1
+        text = anchor.inner_text()
+        assert text.count("passenger car") >= 1
+        assert "low" in text.lower() and "high" in text.lower()
+        assert "for scale only" in text.lower()
+        assert "aqueous" in text.lower()
+
+        # 2. Preset view: the chosen preset's own anchored count, cited.
+        page.locator("#preset-slider").evaluate(
+            "el => { el.value = el.max; el.dispatchEvent(new Event('input')) }"
+        )
+        detail = panel.locator("#preset-detail .anchor").inner_text()
+        assert "passenger car" in detail
+        assert "±" in detail  # the count keeps its uncertainty
+        assert "epa.gov" in detail
+
+        browser.close()
