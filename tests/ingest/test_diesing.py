@@ -249,3 +249,58 @@ def test_real_crop_envelope_contains_its_area_and_not_the_wider_sea():
     assert box.lat_min <= 53.665470 <= box.lat_max  # pinned land pixel
     assert box.lon_min <= 7.483920 <= box.lon_max
     assert not (box.lat_min <= 54.5 <= box.lat_max and box.lon_min <= 3.0 <= box.lon_max)
+
+
+# --- The mapped seabed area (the footprint headline's denominator) ----------
+
+
+def test_mapped_area_counts_mapped_pixels_times_the_equal_area_pixel_size(pair_paths):
+    """6 of the 9 synthetic pixels are mapped (the right column is nodata);
+    each is 500 m x 500 m on an equal-area grid, so the mapped seabed is
+    exactly 6 x 250,000 m^2. The zero-density pixel is MAPPED (a measured
+    zero, not absence) and counts."""
+    with DensityRasterPair(*pair_paths) as pair:
+        assert pair.mapped_area_m2() == 6 * 500 * 500
+
+
+def test_mapped_area_refuses_a_non_equal_area_grid(tmp_path):
+    """A geographic (degree) grid has no single pixel area; counting pixels
+    would silently mis-state the seabed. Diesing's rasters are LAEA — the
+    reader refuses anything else rather than guess."""
+    geographic = from_origin(7.0, 54.0, 0.01, 0.01)
+    paths = (
+        _write(tmp_path / "mean.tif", _MEAN, transform=geographic, crs="EPSG:4326"),
+        _write(tmp_path / "unc.tif", _UNC, transform=geographic, crs="EPSG:4326"),
+    )
+    with DensityRasterPair(*paths) as pair, pytest.raises(ValueError, match="equal-area"):
+        pair.mapped_area_m2()
+
+
+def test_mapped_area_refuses_a_rotated_grid(tmp_path):
+    """A rotated affine has no 'pixel width x pixel height' — the a*e product
+    is not the pixel area. Refused rather than mis-stated."""
+    from affine import Affine
+
+    rotated = Affine(400, 300, 4321000, 300, -400, 3210000)  # 500 m pixels, rotated
+    paths = (
+        _write(tmp_path / "mean.tif", _MEAN, transform=rotated),
+        _write(tmp_path / "unc.tif", _UNC, transform=rotated),
+    )
+    with DensityRasterPair(*paths) as pair, pytest.raises(ValueError, match="axis-aligned"):
+        pair.mapped_area_m2()
+
+
+@pytest.mark.integration
+def test_real_crop_mapped_area_matches_an_independent_pixel_count():
+    """The real 60x60 crop: 1868 mapped pixels (pinned at fixture creation)
+    on Diesing's 500 m grid -> 467 km^2 of mapped seabed, counted here by an
+    independent numpy pass over the mean raster."""
+    with rasterio.open(_REAL_MEAN) as src:
+        data = src.read(1)
+        independent = int((data != src.nodata).sum()) * abs(src.transform.a * src.transform.e)
+
+    with DensityRasterPair(_REAL_MEAN, _REAL_UNC) as pair:
+        area = pair.mapped_area_m2()
+
+    assert area == independent
+    assert math.isclose(area, 1868 * 500 * 500, rel_tol=1e-9)  # 500 m carries float noise

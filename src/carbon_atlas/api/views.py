@@ -15,6 +15,7 @@ from carbon_atlas.anchors import AnchorCount, anchor_counts
 from carbon_atlas.db.store import (
     cells_tile_mvt,
     get_run,
+    latest_footprint_summary,
     list_runs,
     load_overlap,
     trawled_cells_intersecting,
@@ -28,6 +29,7 @@ from carbon_atlas.estimates import (
     disturbed_from_cells,
     estimate_region_co2,
 )
+from carbon_atlas.footprint import FOOTPRINT_CAVEATS, FOOTPRINT_METHOD, FootprintBracket
 from carbon_atlas.overlap import TrawledCell
 from carbon_atlas.reactivity.presets import PUBLISHED_PRESETS
 
@@ -231,6 +233,56 @@ class RunTilesView(APIView):
             raise NotFound(str(exc)) from exc
         tile = cells_tile_mvt(conn, run_id, z=z, x=x, y=y)
         return HttpResponse(tile, content_type="application/vnd.mapbox-vector-tile")
+
+
+def _bracket_payload(bracket: FootprintBracket) -> dict:
+    return {
+        "lower_m2": bracket.lower_m2,
+        "poisson_m2": bracket.poisson_m2,
+        "upper_m2": bracket.upper_m2,
+    }
+
+
+class FootprintView(APIView):
+    """The cumulative trawling footprint (ADR-0017): the newest stored summary
+    as a bracket — floor, Poisson union, ceiling — in area and as fractions of
+    the carbon-mapped seabed, with the runs and years it rests on, the cited
+    method and its published comparator, and the caveats naming both
+    directions of bias. Nothing computed yet is a 404, never a zero.
+    """
+
+    def get(self, request: Request) -> Response:
+        record = latest_footprint_summary(_store_connection())
+        if record is None:
+            raise NotFound("no cumulative footprint has been computed for this database yet")
+        fractions = record.fractions
+        return Response(
+            {
+                "summary_id": record.id,
+                "computed_at": record.computed_at,
+                "years": list(record.years),
+                "run_ids": list(record.run_ids),
+                "cells": record.cells,
+                "mapped_seabed_area_m2": record.mapped_seabed_area_m2,
+                "mapped_seabed": {
+                    **_bracket_payload(record.mapped),
+                    "fraction": {
+                        "lower": fractions.lower,
+                        "poisson": fractions.poisson,
+                        "upper": fractions.upper,
+                    },
+                },
+                "all_effort": _bracket_payload(record.all_effort),
+                "per_year_mapped_m2": {
+                    str(year): area for year, area in sorted(record.per_year_mapped_m2.items())
+                },
+                "per_year_mapped_fraction": {
+                    str(year): fraction for year, fraction in fractions.per_year.items()
+                },
+                "method": dict(FOOTPRINT_METHOD),
+                "caveats": list(FOOTPRINT_CAVEATS),
+            }
+        )
 
 
 class AtlasPageView(TemplateView):

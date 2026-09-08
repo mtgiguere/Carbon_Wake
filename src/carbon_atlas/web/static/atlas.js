@@ -13,6 +13,7 @@
  *   window.__atlas.hasOverlay       — overlay layers exist
  *   window.__atlas.currentRun       — the run being displayed
  *   window.__atlas.estimate         — the current run's estimate payload
+ *   window.__atlas.footprint        — the cumulative-footprint payload (null: none computed)
  *   window.__atlas.setOverlayVisible(bool)
  * ?basemap=none renders without the external basemap so tests exercise OUR
  * layers with zero third-party network dependence.
@@ -257,6 +258,68 @@
     renderPreset(presetStops[Number(event.target.value)]);
   });
   document.getElementById("show-range").addEventListener("click", renderRange);
+
+  /* ---------- the cumulative footprint (ADR-0017) ---------- */
+
+  function pct(fraction) {
+    var value = fraction * 100;
+    return (value < 10 ? value.toFixed(1) : value.toFixed(0)) + " %";
+  }
+
+  function km2(m2) {
+    return Math.round(m2 / 1e6).toLocaleString("en-US") + " km²";
+  }
+
+  // A coverage claim, never a single number: floor, Poisson union, ceiling,
+  // the years and the denominator on the headline; method, comparator, and
+  // caveats one gesture away. The server did every division.
+  function renderFootprint(fp) {
+    var box = document.getElementById("footprint");
+    var years = fp.years;
+    var span = years.length > 1 ? years[0] + "–" + years[years.length - 1] : String(years[0]);
+    var f = fp.mapped_seabed.fraction;
+    box.replaceChildren();
+    box.appendChild(
+      el("strong", "Trawled at least once, " + span + ": ≈ " + pct(f.poisson) +
+        " of the mapped seabed")
+    );
+    box.appendChild(
+      el("div", "bracket — floor " + pct(f.lower) + " (largest single year) · ceiling " +
+        pct(f.upper) + " (years never overlapping); headline = random-placement union across " +
+        years.length + (years.length === 1 ? " year" : " years"), { style: "color:#555" })
+    );
+    box.appendChild(
+      el("div", "denominator: " + km2(fp.mapped_seabed_area_m2) +
+        " of carbon-mapped seabed (Diesing 2021). A coverage claim, independent of any CO₂ preset.",
+        { style: "font-size:11px;color:#777" })
+    );
+    var details = el("details", null, { style: "margin-top:4px" });
+    details.appendChild(el("summary", "method, comparator & caveats", { style: "cursor:pointer" }));
+    details.appendChild(
+      el("div", "per year: " + years.map(function (y) {
+        return y + " " + pct(fp.per_year_mapped_fraction[String(y)]);
+      }).join(", "), { style: "font-size:11px;color:#555;margin-top:4px" })
+    );
+    details.appendChild(el("div", fp.method.description, { style: "font-size:11px;color:#555;margin-top:4px" }));
+    details.appendChild(el("div", fp.method.citation, { style: "font-size:11px;color:#555;margin-top:4px" }));
+    details.appendChild(
+      el("div", "Published comparator: " + fp.method.published_comparator,
+        { style: "font-size:11px;color:#555;margin-top:4px" })
+    );
+    var list = el("ul", null, { style: "margin:6px 0 0 16px;padding:0;font-size:11px;color:#555" });
+    fp.caveats.forEach(function (caveat) { list.appendChild(el("li", caveat, { style: "margin-bottom:3px" })); });
+    details.appendChild(list);
+    box.appendChild(details);
+    box.hidden = false;
+  }
+
+  fetch("/api/footprint/")
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (fp) {
+      window.__atlas.footprint = fp;
+      if (fp) renderFootprint(fp);
+    })
+    .catch(function () { window.__atlas.footprint = null; });
 
   /* ---------- runs and the year axis ---------- */
 

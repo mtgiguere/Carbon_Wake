@@ -460,3 +460,54 @@ committing it silently.
 now safe to load. (b) Schema evolved by recreate per ADR-0013; the working
 database was rebuilt and re-run. (c) Adding product years (GFW v4, 2025+)
 means extending the width table with its documented one-script recomputation.
+
+---
+
+## 2026-09-08 — ADR-0017: The cumulative footprint is a bracketed coverage claim, computed offline
+
+**Context.** With the 2013–2023 backfill under way, the atlas can answer a
+question that needs no reactivity preset: *what fraction of the North Sea
+seabed has been trawled at least once since 2012?* It is a coverage claim —
+physics both camps of the CO2 dispute accept — and therefore the most
+defensible headline the project can offer. Two temptations had to be
+refused: serving it as one number, and computing it per request.
+
+**Decision.**
+
+1. **The per-cell footprint math lives in ONE place.** `swept_area_ratio` and
+   `poisson_footprint_fraction` (1 − e^(−SAR), ADR-0014) now sit in
+   `carbon_atlas.disturbance`; the bounded carbon model is built from them
+   and the footprint module imports them. The CO2 chain and the coverage
+   headline cannot disagree about what a footprint is.
+2. **The headline is a bracket, never a point.** Per cell: the largest
+   single-year footprint is the **floor** (no cross-year assumption); the
+   annual footprints summed and capped at the cell are the **ceiling**; the
+   **Poisson union** 1 − e^(−ΣSAR) — independent random placement across
+   years — is the headline and sits between them (property-tested). Each
+   year's SAR is priced with that year's gear profiles (ADR-0016).
+3. **Both directions of bias are stated.** Aggregation (fleets revisit the
+   same tows) pushes the truth BELOW the union; AIS under-coverage before
+   2017 pushes every figure LOW; midwater contamination (ADR-0009) pushes
+   swept area HIGH. IDEAS.md's "lower bound" framing was wrong and is
+   retired — the honest statement is the bracket plus these caveats.
+4. **The denominator comes from the carbon rasters themselves**:
+   `DensityRasterPair.mapped_area_m2()` counts mapped pixels on Diesing's
+   equal-area grid (a geographic grid is refused). Effort on unmapped
+   seafloor is reported as an area only — it has no honest denominator.
+5. **Computed offline, stored, served.** `run_footprint_summary` streams
+   every stored year's cells through a server-side cursor (millions of rows)
+   into the pure layer once and stores the result in `footprint_summary`,
+   whose CHECK constraints enforce floor ≤ union ≤ ceiling. The API serves
+   the newest summary (`/api/footprint/`) with the years and runs it rests
+   on, the cited method, Amoroso 2018's published North Sea comparator, and
+   the caveats; no summary is a 404, never a zero. Adding a table is a
+   schema addition, not a recreate (ADR-0013 governs changes to existing
+   tables).
+
+**Consequences.** (a) The panel gains a footprint block: headline, bracket,
+years, denominator, with method/comparator/caveats one gesture away.
+(b) After every backfill or new year, the summary must be recomputed (one
+documented command, DEPLOY.md); a stale summary names its own years, so
+staleness is visible, not silent. (c) `tests/web` gained a fixture that
+empties the ETL-owned tables between transactional page tests — Django's
+flush never knew about them, a latent leak this slice exposed.

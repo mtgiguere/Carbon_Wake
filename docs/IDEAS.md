@@ -22,7 +22,14 @@ coastline, a policy reader their proposed closure.
 - Best-candidate next interactive slice; it is the storyboard's "explore
   yourself" beat, made personal.
 
-## 2. Cumulative footprint — one defensible headline number
+## 2. Cumulative footprint — one defensible headline number — DONE 2026-09-08
+
+> Shipped as ADR-0017: `carbon_atlas.footprint`, the offline
+> `run_footprint_summary`, `/api/footprint/`, and the panel block. One
+> correction to the note below: the Poisson union is NOT a lower bound —
+> aggregation pushes the truth below it while AIS under-coverage pushes
+> effort the other way — so it ships as a bracket (floor / union / ceiling)
+> with both biases stated. The original note, kept for the record:
 
 After the 2013–2023 backfill: union the Poisson footprints across all years
 and answer *"what fraction of the North Sea seabed has been trawled at least

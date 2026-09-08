@@ -49,3 +49,25 @@ CREATE TABLE IF NOT EXISTS overlap_cell (
 );
 
 CREATE INDEX IF NOT EXISTS overlap_cell_geom_idx ON overlap_cell USING gist (geom);
+
+-- The cumulative trawling footprint, computed offline over a set of runs
+-- (carbon_atlas.footprint; ADR-0017). One row per computation, newest wins.
+-- The bracket's own invariant (floor <= Poisson union <= ceiling) is a
+-- constraint: the database refuses a summary that contradicts itself.
+CREATE TABLE IF NOT EXISTS footprint_summary (
+    id                      bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    computed_at             timestamptz NOT NULL DEFAULT now(),
+    run_ids                 bigint[] NOT NULL CHECK (cardinality(run_ids) > 0),
+    years                   integer[] NOT NULL,
+    cells                   integer NOT NULL CHECK (cells >= 0),
+    mapped_seabed_area_m2   double precision NOT NULL CHECK (mapped_seabed_area_m2 > 0),
+    mapped_lower_m2         double precision NOT NULL CHECK (mapped_lower_m2 >= 0),
+    mapped_poisson_m2       double precision NOT NULL CHECK (mapped_poisson_m2 >= 0),
+    mapped_upper_m2         double precision NOT NULL CHECK (mapped_upper_m2 >= 0),
+    all_lower_m2            double precision NOT NULL CHECK (all_lower_m2 >= 0),
+    all_poisson_m2          double precision NOT NULL CHECK (all_poisson_m2 >= 0),
+    all_upper_m2            double precision NOT NULL CHECK (all_upper_m2 >= 0),
+    per_year_mapped_m2      jsonb NOT NULL,
+    CHECK (mapped_lower_m2 <= mapped_poisson_m2 AND mapped_poisson_m2 <= mapped_upper_m2),
+    CHECK (all_lower_m2 <= all_poisson_m2 AND all_poisson_m2 <= all_upper_m2)
+);
