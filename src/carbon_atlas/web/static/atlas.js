@@ -162,7 +162,10 @@
     var low = byKey[estimate.range.low.preset_key];
     var high = byKey[estimate.range.high.preset_key];
     function endText(entry) {
-      var flag = entry.preset.derivation ? " (inferred)" : "";
+      // The derived/quoted flag comes from the preset's `derivation`; a label
+      // that already says "inferred" must not be stuttered "(inferred) (inferred)".
+      var flag = entry.preset.derivation && !/inferred/i.test(entry.preset.label)
+        ? " (inferred)" : "";
       return co2Text(entry.aqueous_co2) + " — " + entry.preset.label + flag;
     }
     box.appendChild(
