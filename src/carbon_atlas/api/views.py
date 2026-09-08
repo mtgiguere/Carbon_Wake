@@ -11,6 +11,7 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from carbon_atlas.anchors import AnchorCount, anchor_counts
 from carbon_atlas.db.store import (
     cells_tile_mvt,
     get_run,
@@ -135,6 +136,19 @@ def _co2_payload(quantity: CO2Quantity | None) -> dict | None:
     return {"mean_kg": quantity.mean_kg, "uncertainty_kg": quantity.uncertainty_kg}
 
 
+def _anchor_payload(counted: AnchorCount) -> dict:
+    """An anchored count with its anchor's citation and comparability basis
+    on the same object — an anchored number is never a bare number."""
+    return {
+        "key": counted.anchor.key,
+        "unit_label": counted.anchor.unit_label,
+        "mean_units": counted.mean_units,
+        "uncertainty_units": counted.uncertainty_units,
+        "citation": counted.anchor.citation,
+        "basis": counted.anchor.basis,
+    }
+
+
 class RunEstimateView(APIView):
     """A run's region CO2 estimate — the headline number, served the only way
     this project allows: as a cited range with uncertainty, wrapped in its
@@ -178,6 +192,9 @@ class RunEstimateView(APIView):
                         "preset": asdict(entry.preset),
                         "aqueous_co2": _co2_payload(entry.aqueous),
                         "atmospheric_co2": _co2_payload(entry.atmospheric),
+                        "anchors": [
+                            _anchor_payload(counted) for counted in anchor_counts(entry.aqueous)
+                        ],
                     }
                     for entry in region.per_preset
                 ],

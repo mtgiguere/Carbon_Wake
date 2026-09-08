@@ -79,7 +79,12 @@ storytelling gold; nothing else on this list makes the issue feel current.
   site (see portfolio memory: keep the demo dependency-light) — perhaps a
   toggle, off by default.
 
-## 6. Everyday-unit anchors (small)
+## 6. Everyday-unit anchors (small) — DONE 2026-09-07
+
+> Shipped as `carbon_atlas.anchors` + the panel's anchor lines: both range
+> ends in typical passenger car-years (EPA 4.6 t/yr, verified; SCIENCE_BASIS
+> "Everyday anchors"), uncertainty carried, "for scale only" basis on the
+> panel. The original note, kept for the record:
 
 In the estimate panel: "15.7 Mt ≈ annual emissions of ~3.4 million cars;
 15.7 kt ≈ a few thousand — *the disagreement is the story*." Comms research

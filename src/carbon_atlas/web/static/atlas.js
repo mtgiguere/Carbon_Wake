@@ -53,6 +53,19 @@
     return text;
   }
 
+  // Everyday-unit anchors (backlog #6): two significant figures — a familiar
+  // scale, never a precise-looking count — with the uncertainty alongside in
+  // the same unit. The server computes the counts and ships each with its
+  // citation and its "for scale only" basis; this only formats them.
+  function unitsText(n) {
+    var rounded = Number(n.toPrecision(2));
+    return rounded >= 1000 ? Math.round(rounded).toLocaleString("en-US") : String(rounded);
+  }
+
+  function anchorCountText(anchor) {
+    return unitsText(anchor.mean_units) + " ± " + unitsText(anchor.uncertainty_units);
+  }
+
   /* ---------- the map ---------- */
 
   function blankStyle() {
@@ -157,6 +170,16 @@
     );
     box.appendChild(el("div", "low: " + endText(low)));
     box.appendChild(el("div", "high: " + endText(high)));
+    // Anchor BOTH ends in the same everyday unit: the range is the message.
+    low.anchors.forEach(function (anchor, i) {
+      var node = el("div", null, { class: "anchor", style: "color:#555;margin-top:4px" });
+      node.appendChild(
+        el("div", "As " + anchor.unit_label + ": low ≈ " + anchorCountText(anchor) +
+          ", high ≈ " + anchorCountText(high.anchors[i]) + " — the disagreement is the story.")
+      );
+      node.appendChild(el("div", anchor.basis, { style: "font-size:11px;color:#777" }));
+      box.appendChild(node);
+    });
     box.appendChild(
       el("div", "disturbed organic carbon: " +
         tonnes(estimate.disturbed_carbon.mean_kg) + " ± " +
@@ -179,6 +202,13 @@
     if (entry.preset.derivation) {
       box.appendChild(el("div", "inferred: " + entry.preset.derivation, { style: "color:#8a5a00" }));
     }
+    entry.anchors.forEach(function (anchor) {
+      var node = el("div", null, { class: "anchor", style: "color:#555;margin-top:4px" });
+      node.appendChild(el("div", "≈ " + anchorCountText(anchor) + " " + anchor.unit_label));
+      node.appendChild(el("div", anchor.basis, { style: "font-size:11px;color:#777" }));
+      node.appendChild(el("div", anchor.citation, { style: "font-size:11px;color:#777" }));
+      box.appendChild(node);
+    });
     box.appendChild(
       el("div", (entry.preset.accounts_for_additionality
         ? "credits natural background remineralization (additionality)"

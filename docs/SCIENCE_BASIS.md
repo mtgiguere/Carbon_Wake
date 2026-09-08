@@ -280,3 +280,32 @@ artifact — disclosed here rather than smoothed away.
   secondary summary, not Sala's supplementary tables.
 - Sala 2023 reply — full text gated.
 - Any absolute low-end figure — inferred from Hiddink's factor, never published as such.
+
+## Everyday anchors (added 2026-09-07)
+
+The estimate panel expresses each CO2 figure as a count of something
+familiar, so a reader can feel the scale of the *disagreement* — both ends
+of the range are anchored in the same unit; one anchored figure never stands
+alone (`carbon_atlas.anchors`, docs/IDEAS.md #6).
+
+- **Typical passenger car, one year = 4.6 metric tons CO2.** US EPA, Green
+  Vehicle Guide, "Greenhouse Gas Emissions from a Typical Passenger Vehicle":
+  "A typical passenger vehicle emits about 4.6 metric tons of carbon dioxide
+  per year", assuming 22.2 miles per gallon, 11,500 miles per year, and
+  8,887 g CO2 per gallon of gasoline
+  (https://www.epa.gov/greenvehicles/greenhouse-gas-emissions-typical-passenger-vehicle)
+  [VERIFIED — primary page fetched 2026-09-07; page last updated 2026-06-03].
+  This is a US fleet-average convention (EU fleet averages are lower per
+  car); it is a scale, not a measurement of any fleet.
+
+**Comparability limit (stated on the panel, not in a footnote):** a car's
+figure is tailpipe CO2 released to the atmosphere; the atlas's headline is
+*aqueous* first-year CO2 in seawater, of which an unquantified fraction
+reaches the atmosphere (see the caveats). The anchor is therefore "for scale
+only" and is never phrased as an equivalence. The count carries the CO2
+quantity's uncertainty, divided by the same factor — the anchor can neither
+tighten nor loosen a band.
+
+For the 2024 North Sea run this reads: low ≈ 3,400 ± 2,000 car-years
+(Hiddink-inferred) to high ≈ 3,400,000 ± 2,000,000 car-years (Sala) — the
+1000× dispute, in units a reader already owns.
