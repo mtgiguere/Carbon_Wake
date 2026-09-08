@@ -74,6 +74,10 @@ def test_the_range_is_the_default_view_and_a_preset_is_an_explicit_labeled_choic
         assert "Hiddink" in range_text
         assert "Sala" in range_text
         assert "inferred" in range_text.lower()
+        # ...flagged ONCE. The Hiddink label already says "inferred"; the panel
+        # must not stutter "(inferred) (inferred)" (seen on the real page,
+        # 2026-09-07) — a visible glitch on the most-read line costs trust.
+        assert range_text.lower().count("inferred") == 1, range_text
 
         # 2. Moving the slider is an explicit single-preset choice: the view
         #    switches, labeled with the preset's own label and citation DOI.
