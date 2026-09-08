@@ -63,7 +63,14 @@ markers = [
     "integration: exercises a real external format/source (a download, an API response, a DB). Slow; not run by default. See docs/ARCHITECTURE.md 'Blind spot A'.",
     "visual: renders the map and asserts on pixels. Requires software WebGL. See 'Blind spot B'.",
 ]
-filterwarnings = ["error"]
+filterwarnings = [
+    "error",
+    # affine 3.0.1 (2026-09) warns inside rasterio 1.5.1's own from_origin(),
+    # which still uses `*` for Affine composition. Third-party-internal, nothing
+    # of ours to fix; scoped to that exact message so every other warning still
+    # fails the suite. Drop once rasterio composes with `@`.
+    'ignore:Use `@` matmul instead of `\*` mul operator:PendingDeprecationWarning',
+]
 
 # ---------------------------------------------------------------------------
 # coverage — reported, never used as a proxy for 'verified' (see TDD_CONTRACT.md)
