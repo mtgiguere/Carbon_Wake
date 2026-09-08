@@ -309,3 +309,58 @@ tighten nor loosen a band.
 For the 2024 North Sea run this reads: low ≈ 3,400 ± 2,000 car-years
 (Hiddink-inferred) to high ≈ 3,400,000 ± 2,000,000 car-years (Sala) — the
 1000× dispute, in units a reader already owns.
+
+## The cumulative footprint (added 2026-09-08, ADR-0017)
+
+**The claim.** "Fraction of the carbon-mapped North Sea seabed trawled at
+least once, 2012–<latest year>" — a coverage claim independent of every
+reactivity preset. Per 0.01° cell and year, SAR = hours × speed × width /
+cell area (that year's fleet widths, ADR-0016); the year's footprint is
+1 − e^(−SAR) (ADR-0014). Across years the atlas reports a **bracket**:
+
+- **floor** — the largest single-year footprint (no cross-year assumption);
+- **Poisson union** — 1 − e^(−ΣSAR), tow placement independent and random
+  across years as well as within them [DERIVED — extension of Amoroso's
+  within-year assumption; not a published estimator for multi-year union];
+- **ceiling** — the annual footprints summed, capped at the cell.
+
+The denominator is the mapped seabed of Diesing 2021 (count of mapped 500 m
+pixels × 0.25 km², exact on the LAEA grid). Effort on unmapped seafloor is
+reported as an area only.
+
+**Published comparator [VERIFIED — Amoroso et al. 2018, PNAS
+10.1073/pnas.1802379115, Table 1 read from PMC6205437 on 2026-09-08].**
+North Sea (ICES 4a–4c), VMS/logbook effort 2010–2012, 86% coverage of
+bottom-trawling effort, depths 0–1000 m (586 × 10³ km²): regional SAR
+1.191 yr⁻¹; area trawled per year **89.3%** under the grid-cell assumption
+(approach A), **42.2%** under the random-placement assumption (approach B —
+the estimator this atlas uses), **51.7%** under the uniform assumption
+(approach C); 39.8% of the region accounts for 90% of activity. Our per-year
+mapped footprints are the like-for-like comparison to the 42.2% figure; the
+multi-year union has no published counterpart. Differences to expect: our
+effort is AIS-based (GFW; thinner coverage before 2017), our gear classes
+include midwater trawlers (ADR-0009), and our denominator is the
+carbon-mapped seabed rather than the ICES area. Eigaard et al. 2017 (ICES
+JMS 74:847–865) report European management-area footprints of 53–99%
+(0–200 m, cell-based) and 28–85% after excluding untrawled proportions
+[VERIFIED — abstract only; the North Sea row not read].
+
+**Biases, both directions (stated on the product, not here alone).**
+Aggregation — real fleets revisit the same tows year after year (Amoroso
+2018: the most intensively trawled areas accounting for 90% of activity
+comprised 77% of footprint on average) — makes the Poisson union an
+overestimate of the true multi-year footprint. AIS under-coverage in early
+years makes every figure an underestimate of effort. Midwater contamination
+makes swept bottom area an overestimate. None of these cancel in a knowable
+way; the floor is the only figure that needs no cross-year assumption.
+
+**First real computation (2026-09-08, years 2012–2015 + 2024, 1,434,122
+cells, mapped seabed 531,385 km²):** floor 36.2%, Poisson union 40.4%,
+ceiling 43.0%; per year 2012 5.3%, 2013 16.7%, 2014 16.6%, 2015 18.0%,
+2024 23.6%. Against Amoroso's 42.2%/yr the AIS-based per-year footprint is
+roughly half — the expected direction (VMS covers the EU fleet ≥12 m with
+near-complete coverage; AIS carriage and reception were far thinner,
+especially before 2017, and small vessels are missed), so the atlas's
+coverage figures should be read as what AIS SAW, not what the fleet did.
+The 2012→2013 tripling is the AIS coverage jump, not a fishing trend. These
+figures change as the backfill completes; the served summary names its years.

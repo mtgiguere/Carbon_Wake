@@ -46,8 +46,8 @@ delivery mechanism layered around it.
                     └───────────────▲─────────────────────────────┘
                                     │ disturbed-carbon quantities
                     ┌───────────────┴─────────────────────────────┐
-   SCIENCE CORE     │  carbon_atlas.reactivity  (PURE)            │  ← unit + property tests
-                    │  named presets → CO2 estimate → range        │     (the most-tested code)
+   SCIENCE CORE     │  reactivity · disturbance · estimates ·      │  ← unit + property tests
+                    │  footprint · anchors  (PURE)                 │     (the most-tested code)
                     └─────────────────────────────────────────────┘
 ```
 
@@ -188,6 +188,12 @@ suites grow, the fast unit run is `pytest -m "not integration and not visual"`.
    `mapped` flag so "unmapped ≠ zero" is expressible in the style. Next:
    the page itself — static overlay with SwiftShader pixel tests
    (Blind spot B), then the preset slider and uncertainty display.
+6b. **The cumulative footprint** (2026-09-08, ADR-0017): a coverage headline
+   that needs no preset — per-cell Poisson footprints (the same primitives the
+   CO2 chain uses, now in `carbon_atlas.disturbance`) unioned across years by
+   `carbon_atlas.footprint` as a bracket (floor / union / ceiling); computed
+   offline by `run_footprint_summary` over a server-side cursor, stored in
+   `footprint_summary`, served at `/api/footprint/`, shown on the panel.
 7. **Docker Compose deployment** ← we are here. The production stack exists
    and was first-run VERIFIED locally end to end (image built, Caddy → 
    gunicorn → WhiteNoise → PostGIS, real data restored, map rendered):

@@ -44,7 +44,12 @@ propagation convention rather than a CI, thin 2012 AIS coverage — are listed
 in `docs/SCIENCE_BASIS.md` ("Known limitations") and served inside every
 estimate payload. See `docs/RIGOR.md` before citing any number.
 
-Next: the storytelling spike (`docs/SHOWCASE_SPIKE.md`), then the frontend map.
+**2026-09-08:** the map, preset slider, year axis, and production stack are
+in; the 2013–2023 backfill is loading; the panel now anchors both ends of the
+range in everyday units (car-years, EPA factor) and carries the cumulative
+footprint — "fraction of the mapped seabed trawled at least once since 2012"
+as a bracket with both biases stated (ADR-0017). Next: finish the backfill,
+then the wind-farm reference-zone layer (`docs/IDEAS.md` #3).
 
 ## Getting started (dev)
 

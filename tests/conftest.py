@@ -38,7 +38,10 @@ def db_conn():
     # Rebuild from schema.sql every session: the test database must always be
     # exactly what a fresh install gets, immune to pre-1.0 schema evolution
     # (ADR-0013: recreate, don't migrate).
-    conn.execute("DROP TABLE IF EXISTS overlap_cell; DROP TABLE IF EXISTS etl_run")
+    conn.execute(
+        "DROP TABLE IF EXISTS footprint_summary; DROP TABLE IF EXISTS overlap_cell;"
+        " DROP TABLE IF EXISTS etl_run"
+    )
     apply_schema(conn)
     yield conn
     conn.close()
@@ -46,6 +49,7 @@ def db_conn():
 
 @pytest.fixture
 def conn(db_conn):
-    """A clean-slate connection: both ETL tables emptied before each test."""
+    """A clean-slate connection: every ETL-owned table emptied before each test."""
     db_conn.execute("TRUNCATE etl_run RESTART IDENTITY CASCADE")
+    db_conn.execute("TRUNCATE footprint_summary RESTART IDENTITY")
     return db_conn

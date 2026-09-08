@@ -91,6 +91,31 @@ class DensityRasterPair:
         )
         return BoundingBox(lat_min=lat_min, lat_max=lat_max, lon_min=lon_min, lon_max=lon_max)
 
+    def mapped_area_m2(self) -> float:
+        """The seabed area the dataset actually maps: mapped pixels times the
+        pixel's true area — exact only on an equal-area grid, which Diesing's
+        LAEA rasters are. This is the honest denominator for "fraction of
+        the mapped seabed" claims (carbon_atlas.footprint); a geographic
+        grid, whose pixels shrink with latitude, is refused rather than
+        approximated. Reads block by block, so the full raster never has to
+        fit in memory.
+        """
+        crs = self._mean.crs
+        wkt = crs.to_wkt().lower().replace(" ", "_")
+        if crs.is_geographic or "equal_area" not in wkt:
+            raise ValueError(
+                f"mapped area needs an equal-area projected grid; got {crs.to_string()!r}"
+            )
+        transform = self._mean.transform
+        if transform.b != 0.0 or transform.d != 0.0:
+            raise ValueError("mapped area needs an axis-aligned grid; got a rotated transform")
+        pixel_area_m2 = abs(transform.a * transform.e)
+        mapped_pixels = 0
+        for _, window in self._mean.block_windows(1):
+            data = self._mean.read(1, window=window)
+            mapped_pixels += int((data != self._mean.nodata).sum())
+        return mapped_pixels * pixel_area_m2
+
     def close(self) -> None:
         self._mean.close()
         self._uncertainty.close()

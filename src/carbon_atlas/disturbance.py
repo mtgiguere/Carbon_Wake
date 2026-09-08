@@ -165,6 +165,28 @@ def swept_area_m2(fishing_hours: float, profile: GearProfile) -> float:
     return distance_m * profile.gear_width_m
 
 
+def swept_area_ratio(fishing_hours: float, profile: GearProfile, cell_area_m2: float) -> float:
+    """Swept area over cell area — Sala 2021's SAR for one cell and gear.
+    Refuses a non-positive or non-finite cell area: a ratio to nothing is
+    not a ratio."""
+    if not math.isfinite(cell_area_m2) or cell_area_m2 <= 0.0:
+        raise ValueError(f"cell_area_m2 must be finite and positive; got {cell_area_m2!r}")
+    return swept_area_m2(fishing_hours, profile) / cell_area_m2
+
+
+def poisson_footprint_fraction(swept_area_ratio: float) -> float:
+    """The fraction of a cell swept AT LEAST ONCE under random (Poisson) tow
+    placement: 1 - exp(-SAR) (Amoroso et al. 2018's assumption; the closed
+    form is our standard derivation from it, ADR-0014). The ONE place this
+    expression lives: the CO2 chain and the cumulative-footprint headline
+    both build on it, so they can never disagree."""
+    if not math.isfinite(swept_area_ratio) or swept_area_ratio < 0.0:
+        raise ValueError(
+            f"swept_area_ratio must be finite and non-negative; got {swept_area_ratio!r}"
+        )
+    return -math.expm1(-swept_area_ratio)
+
+
 def bounded_disturbed_carbon_kg(
     *,
     fishing_hours: float,
@@ -186,10 +208,8 @@ def bounded_disturbed_carbon_kg(
     (aggregated) trawling, so the bound stays conservative-high — disclosed,
     like everything else, in ESTIMATE_CAVEATS.
     """
-    if not math.isfinite(cell_area_m2) or cell_area_m2 <= 0.0:
-        raise ValueError(f"cell_area_m2 must be finite and positive; got {cell_area_m2!r}")
-    swept_area_ratio = swept_area_m2(fishing_hours, profile) / cell_area_m2
-    footprint_m2 = cell_area_m2 * -math.expm1(-swept_area_ratio)
+    ratio = swept_area_ratio(fishing_hours, profile, cell_area_m2)
+    footprint_m2 = cell_area_m2 * poisson_footprint_fraction(ratio)
     volume_m3 = footprint_m2 * profile.penetration_depth_m
     return DisturbedCarbon(
         mean_kg=volume_m3 * density.mean,

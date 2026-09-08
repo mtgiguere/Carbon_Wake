@@ -7,15 +7,26 @@ totals). Cell geometry is built in SQL from the integer cell indices, so the
 database holds real WGS84 polygons a GiST index can do spatial work on.
 """
 
+import json
+from collections import Counter
+from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
 from datetime import datetime
+from itertools import groupby
 from pathlib import Path
 
 import psycopg
+from psycopg.types.json import Jsonb
 
 from carbon_atlas.carbon.density import CarbonDensity
 from carbon_atlas.effort.gears import EFFORT_LAYER_LABEL
 from carbon_atlas.effort.grid import GridCell
+from carbon_atlas.footprint import (
+    CellEffortHistory,
+    CumulativeFootprint,
+    FootprintBracket,
+    FootprintFractions,
+)
 from carbon_atlas.overlap import OverlapResult, TrawledCell
 
 
@@ -288,4 +299,151 @@ def trawled_cells_intersecting(
             carbon=CarbonDensity(mean=mean, uncertainty=uncertainty),
         )
         for lat, lon, trawl_hours, dredge_hours, mean, uncertainty in rows
+    )
+
+
+# ---------------------------------------------------------------------------
+# The cross-year view and the footprint summary (ADR-0017)
+# ---------------------------------------------------------------------------
+
+_SELECT_HISTORIES = (
+    "SELECT c.lat_index, c.lon_index, r.effort_year, c.fishing_hours_trawlers,"
+    " c.fishing_hours_dredge_fishing, c.oc_density_mean IS NOT NULL"
+    " FROM overlap_cell c JOIN etl_run r ON r.id = c.run_id"
+    " WHERE c.run_id = ANY(%s)"
+    " ORDER BY c.lat_index, c.lon_index, r.effort_year"
+)
+
+
+def iter_cell_histories(
+    conn: psycopg.Connection, run_ids: Sequence[int]
+) -> Iterator[CellEffortHistory]:
+    """Every cell touched by any of ``run_ids``, its per-gear hours keyed by
+    each run's effort year — streamed in cell order through a server-side
+    cursor, because a decade of runs is millions of rows.
+
+    Refuses an empty request, an unknown run (KeyError naming it), and two
+    runs sharing a year (a cell cannot have two histories for one year;
+    choosing silently would hide the ambiguity). A cell mapped in one run
+    and unmapped in another means the runs used different carbon layers —
+    refused too.
+    """
+    ids = list(run_ids)
+    if not ids:
+        raise ValueError("at least one run id is required")
+    year_by_run = dict(
+        conn.execute("SELECT id, effort_year FROM etl_run WHERE id = ANY(%s)", (ids,)).fetchall()
+    )
+    missing = sorted(set(ids) - set(year_by_run))
+    if missing:
+        raise KeyError(f"no etl_run with id(s) {', '.join(map(str, missing))}")
+    shared = sorted(year for year, count in Counter(year_by_run.values()).items() if count > 1)
+    if shared:
+        raise ValueError(f"more than one run for effort year(s) {shared}; pass one run per year")
+
+    # WITH HOLD: the cursor must work on an autocommit connection (the ETL's)
+    # as well as inside Django's transaction; it is consumed and closed here.
+    with conn.cursor(name="carbon_atlas_cell_histories", withhold=True) as cursor:
+        cursor.itersize = 50_000
+        cursor.execute(_SELECT_HISTORIES, (ids,))
+        for (lat, lon), group in groupby(cursor, key=lambda row: (row[0], row[1])):
+            rows = list(group)
+            mapped_flags = {row[5] for row in rows}
+            if len(mapped_flags) != 1:
+                raise ValueError(
+                    f"cell ({lat}, {lon}) is mapped in some runs and unmapped in others; "
+                    f"the runs do not share a carbon layer"
+                )
+            yield CellEffortHistory(
+                cell=GridCell(lat_index=lat, lon_index=lon),
+                mapped=mapped_flags.pop(),
+                hours_by_year={row[2]: _by_gear(row[3], row[4]) for row in rows},
+            )
+
+
+@dataclass(frozen=True)
+class FootprintSummaryRecord:
+    """One stored footprint computation, as the API serves it."""
+
+    id: int
+    computed_at: datetime
+    run_ids: tuple[int, ...]
+    years: tuple[int, ...]
+    cells: int
+    mapped_seabed_area_m2: float
+    mapped: FootprintBracket
+    all_effort: FootprintBracket
+    per_year_mapped_m2: dict[int, float]
+
+    @property
+    def fractions(self) -> FootprintFractions:
+        """The mapped bracket over the mapped seabed — through the pure
+        layer's own division, so there is one place it happens."""
+        return CumulativeFootprint(
+            years=self.years,
+            cells=self.cells,
+            mapped=self.mapped,
+            all_effort=self.all_effort,
+            per_year_mapped_m2=self.per_year_mapped_m2,
+        ).mapped_fraction(mapped_seabed_area_m2=self.mapped_seabed_area_m2)
+
+
+_SELECT_SUMMARY = (
+    "SELECT id, computed_at, run_ids, years, cells, mapped_seabed_area_m2,"
+    " mapped_lower_m2, mapped_poisson_m2, mapped_upper_m2,"
+    " all_lower_m2, all_poisson_m2, all_upper_m2, per_year_mapped_m2"
+    " FROM footprint_summary"
+)
+
+
+def store_footprint_summary(
+    conn: psycopg.Connection,
+    footprint: CumulativeFootprint,
+    *,
+    run_ids: Sequence[int],
+    mapped_seabed_area_m2: float,
+) -> int:
+    """Persist one footprint computation with the runs it was built from and
+    the denominator it should be read against. Returns the summary id."""
+    row = conn.execute(
+        "INSERT INTO footprint_summary (run_ids, years, cells, mapped_seabed_area_m2,"
+        " mapped_lower_m2, mapped_poisson_m2, mapped_upper_m2,"
+        " all_lower_m2, all_poisson_m2, all_upper_m2, per_year_mapped_m2)"
+        " VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
+        (
+            list(run_ids),
+            list(footprint.years),
+            footprint.cells,
+            mapped_seabed_area_m2,
+            footprint.mapped.lower_m2,
+            footprint.mapped.poisson_m2,
+            footprint.mapped.upper_m2,
+            footprint.all_effort.lower_m2,
+            footprint.all_effort.poisson_m2,
+            footprint.all_effort.upper_m2,
+            Jsonb({str(year): area for year, area in footprint.per_year_mapped_m2.items()}),
+        ),
+    ).fetchone()
+    return row[0]
+
+
+def latest_footprint_summary(conn: psycopg.Connection) -> FootprintSummaryRecord | None:
+    """The newest stored footprint, or None when none has been computed —
+    the honest empty state, never a zero."""
+    row = conn.execute(_SELECT_SUMMARY + " ORDER BY id DESC LIMIT 1").fetchone()
+    if row is None:
+        return None
+    # Django's connection registers a text loader for jsonb (JSONField decodes
+    # itself); a plain psycopg connection decodes to a dict. Accept both.
+    per_year = row[12] if isinstance(row[12], dict) else json.loads(row[12])
+    return FootprintSummaryRecord(
+        id=row[0],
+        computed_at=row[1],
+        run_ids=tuple(row[2]),
+        years=tuple(row[3]),
+        cells=row[4],
+        mapped_seabed_area_m2=row[5],
+        mapped=FootprintBracket(lower_m2=row[6], poisson_m2=row[7], upper_m2=row[8]),
+        all_effort=FootprintBracket(lower_m2=row[9], poisson_m2=row[10], upper_m2=row[11]),
+        per_year_mapped_m2={int(year): area for year, area in per_year.items()},
     )

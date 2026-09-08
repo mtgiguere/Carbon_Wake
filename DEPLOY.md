@@ -34,7 +34,7 @@ On the machine that ran the ETL (dev database on port 5434):
 
 ```sh
 docker exec carbon_wake-postgis-1 pg_dump -U carbon_atlas -d carbon_atlas \
-    --data-only -t etl_run -t overlap_cell > atlas_data.sql   # ~90 MB for 2012
+    --data-only -t etl_run -t overlap_cell -t footprint_summary > atlas_data.sql   # ~90 MB/year
 scp atlas_data.sql you@vm:Carbon_Wake/
 ```
 
@@ -53,12 +53,40 @@ Alternatively, run the ETL on the VM itself (needs the GFW year zip and the
 Diesing rasters downloaded there — see docs/DATA_SPIKE.md for sources; ~6
 minutes per year once downloaded).
 
+## 2b. Recompute the cumulative footprint (after any new year lands)
+
+The footprint headline (ADR-0017) is an offline summary over every stored
+year; it does not update itself. After loading or adding runs, on the machine
+holding the Diesing rasters (the dev box, or the VM after an on-VM ETL):
+
+```sh
+python - <<'PY'
+from pathlib import Path
+import psycopg
+from carbon_atlas.etl import run_footprint_summary
+d = Path("data/diesing2021/Diesing_2021")
+with psycopg.connect("postgresql://carbon_atlas:carbon_atlas_dev@localhost:5434/carbon_atlas") as conn:
+    print("footprint summary id", run_footprint_summary(
+        conn=conn,
+        carbon_mean=d / "OCdensity_quantrf_mean.tif",
+        carbon_uncertainty=d / "OCdensity_quantrf_tot.unc.tif",
+    ))
+    conn.commit()
+PY
+```
+
+(Unset `PROJ_LIB` first on a Windows dev box — CONTRIBUTING.md.) Executed
+2026-09-08 over five years / 1.43 M cells: 44 seconds. Then ship the dump as
+in step 2 — `footprint_summary` is in the table list above. A stale summary
+is visible, not silent: the panel names the years it covers.
+
 ## 3. Verify like we do
 
 ```sh
 curl -s https://your-domain/api/runs/           # run list with provenance
 curl -s -o /dev/null -w "%{http_code} %{size_download}\n" \
     https://your-domain/api/runs/2/tiles/5/16/10.mvt   # ~200 KB, sub-second
+curl -s https://your-domain/api/footprint/      # the bracket, or 404 until step 2b has run
 ```
 
 Then open the site and drag the slider. If the map is empty but the panel

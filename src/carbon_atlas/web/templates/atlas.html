@@ -11,6 +11,9 @@
     #map { position: absolute; inset: 0; }
     #panel {
       position: absolute; top: 12px; left: 12px; z-index: 2; max-width: 380px;
+      /* Everything on the panel stays reachable: it scrolls rather than running
+         under the attribution bar (which must stay visible, ADR-0008). */
+      max-height: calc(100vh - 12px - 36px); overflow-y: auto; box-sizing: border-box;
       background: rgba(255, 255, 255, 0.94); border-radius: 8px; padding: 12px 14px;
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25); font-size: 13px; line-height: 1.45;
     }
@@ -49,6 +52,7 @@
         pure trawling trend.
       </div>
     </div>
+    <div id="footprint" hidden style="margin-top:8px;border-top:1px solid #ddd;padding-top:8px"></div>
     <div id="estimate" hidden>
       <hr style="border:none;border-top:1px solid #ddd;margin:10px 0" />
       <div id="estimate-range"></div>
