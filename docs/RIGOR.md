@@ -103,6 +103,10 @@ mean, so the pair cannot drift apart.
 | 2026-08-27 | **The white map**: page shell rendered, map stuck at "loading…" for the owner | bare runserver serves no `/static/` with DEBUG=False → maplibre-gl.js 404'd. The page test had checked assets EXIST via finders, not that they are SERVED over HTTP — Blind spot A's self-referential pattern in infrastructure clothing. Three static-serving paths (test client / live_server / runserver) each differed from the user's in exactly the failing dimension | WhiteNoise unifies all serving paths; the new test requests assets over real HTTP and was RED exactly the way the browser was |
 | 2026-08-27 | Exit-code masking, SECOND occurrence — a red suite slipped a commit through `pytest \| tail` | repeated a lesson already in this log | never pipe the gate; explicit `rc=$?` before any commit. A documented lesson repeated is worse than a new mistake |
 | 2026-08-27 | Three essential fixes pushed to a branch whose PR was already merged — no CI ran, main silently carried the white-map bug for fresh clones | never checked PR state before pushing follow-ups | PR #19 opened for the stranded commits; rule: after any merge, verify PR state — post-merge fixes get a fresh branch and their own PR immediately |
+| 2026-09-08/10 | **The backfill that could not verify itself**: byte-count checks passed corrupt zips (byte-range resumes stitched Zenodo error pages into archives; two years' ETLs failed on bad members); the MD5 list then fetched carried Windows carriage returns, so every checksum "failed" for over an hour and a valid 2016 file was declared bad; curl saved 504 error bodies as downloads | the download/ETL driver was an untested scratchpad shell script — the only code in the project outside the TDD discipline, and the only code that failed three different ways | MD5 verification, fresh re-download on mismatch; rule 7 below: data-ops code is product code |
+| 2026-09-08 | An orphaned ETL process hung 22 hours; a "killed" loop survived and ran a duplicate; a process sweep killed the harness's own log monitor; a spike query without a bounding-box prefilter ran a full day while the machine slept | long-running work launched casually (tool timeouts, broad kill filters, unbounded geography joins) | detached processes with recorded PIDs; targeted kills; `&&` bbox prefilter before any geography operation over the cell table |
+| 2026-09-10 | Spike figures for the wind-farm contrast were written into the ADR, SCIENCE_BASIS, README, and IDEAS an hour before the product computed its own — which differed (UK ratio 0.48 → 0.81) once unknown-year and under-construction farms were excluded | numbers entered the record from an exploratory query, not from the product's stored computation | all four documents corrected the same day, both figures kept with the reason they differ; rule 8 below |
+| 2026-09-08 | Playwright page tests could see each other's seeded runs and summaries — benign until a "no summary computed" test met the previous test's summary | Django's transactional flush covers Django-managed tables only; the ETL-owned raw tables were never emptied between tests (latent since the first page test) | `tests/web/conftest.py` empties every ETL-owned table before each transactional page test — rule 1 again: the boundary tests must own their own state |
 
 ## Current scientific status — read this before citing any number
 
@@ -152,6 +156,16 @@ so far, each traceable to a row above:
    pixel test gets a RED demo before it counts as protection.
 6. **After any merge, verify PR state before pushing follow-ups**
    (2026-08-27); post-merge fixes get a fresh branch and their own PR.
+7. **Data-ops code is product code** (2026-09-10). Anything that downloads,
+   verifies, or loads source data lives in the repo, under TDD, with
+   checksum verification against the publisher's manifest built in. No
+   scratchpad script for anything that runs longer than a minute or touches
+   the working database. The backfill driver is the first thing this rule
+   applies to (see the 2026-09-08/10 incident).
+8. **Numbers enter the record only from the product's own stored
+   computation** (2026-09-10). A spike's figures may appear in a spike note,
+   labeled as such; an ADR, README, or SCIENCE_BASIS section quotes only what
+   the product computed and stored, with the run/summary it came from.
 
 ## What's deliberately NOT here
 
