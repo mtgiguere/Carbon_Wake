@@ -201,6 +201,11 @@ suites grow, the fast unit run is `pytest -m "not integration and not visual"`.
    pure parser + contrast arithmetic; PostGIS does the apportioning); served
    as GeoJSON + `/api/runs/<id>/zone-contrast/`; a toggleable, pixel-tested
    layer and a per-country line on the panel.
+6e. **Draw your own area** (2026-09-10, IDEAS #1): the estimate endpoint takes
+   an optional bbox — the store's `overlap_intersecting` supplies both sides
+   inside the box, the pure chain prices it, `area_estimate_caveats` adds
+   displacement and the cell count — and the page's draw tool (real mouse
+   drag, box drawn as a layer, one click back to the region).
 7. **Docker Compose deployment** ← we are here. The production stack exists
    and was first-run VERIFIED locally end to end (image built, Caddy → 
    gunicorn → WhiteNoise → PostGIS, real data restored, map rendered):

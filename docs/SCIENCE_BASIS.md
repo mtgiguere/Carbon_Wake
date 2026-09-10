@@ -442,3 +442,25 @@ on 330 km²) is not a clean "before" control either: farms that existed by
 depth); not bottom-contact-only effort (ADR-0009); not a trend (AIS coverage
 grew); not a statement about safety zones or cable corridors (not in the
 polygons).
+
+## Area estimates (added 2026-09-10)
+
+A visitor's box is priced by exactly the same chain as the region (the bounded
+disturbed-carbon model per intersecting mapped cell, every published preset,
+the attributed range with uncertainty) — never a second arithmetic. Two things
+change, and both are said on the panel:
+
+- **Displacement.** An area's figure is what the model attributes to the
+  trawling that happened there. It is NOT what a closure of that area would
+  save: closures displace effort to other grounds rather than deleting it,
+  and the carbon consequences of displacement are not modeled. The caveat is
+  attached to every area payload.
+- **Few cells, wide relative uncertainty.** The per-pixel carbon uncertainty
+  is propagated linearly (fully correlated, SCIENCE_BASIS "Known limitations"
+  4), so it does not average down over a small box the way independent errors
+  would, and one busy cell can dominate the figure. The payload and the panel
+  state how many mapped cells the box rests on.
+
+Cells are selected by polygon intersection with the box, so a cell partly
+inside counts whole — an area estimate is therefore a slight over-inclusion
+at the box edges, disclosed here rather than hidden by clipping.

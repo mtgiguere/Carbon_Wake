@@ -138,3 +138,21 @@ def estimate_region_co2(
         low=by_key[attributed.low_preset.key],
         high=by_key[attributed.high_preset.key],
     )
+
+
+def area_estimate_caveats(*, cells_mapped: int) -> tuple[str, ...]:
+    """The model caveats plus the two an AREA estimate (a visitor's own box,
+    IDEAS.md #1) needs on top: closures displace effort rather than deleting
+    it, and a box resting on few cells has wide relative uncertainty — the
+    cell count is stated so the reader can judge."""
+    if cells_mapped < 0:
+        raise ValueError(f"cells_mapped must be non-negative; got {cells_mapped!r}")
+    return (
+        *ESTIMATE_CAVEATS,
+        "An area estimate is NOT what a closure would save: a hypothetical closure "
+        "DISPLACES effort to other grounds rather than deleting it, and the carbon "
+        "consequences of displacement are not modeled here.",
+        f"This box rests on {cells_mapped} mapped cells. Few cells mean wide relative "
+        "uncertainty: the per-pixel carbon uncertainty does not average out, and "
+        "a single busy cell can dominate the figure.",
+    )

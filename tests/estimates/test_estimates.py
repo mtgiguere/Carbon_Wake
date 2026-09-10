@@ -208,3 +208,22 @@ def test_means_and_uncertainties_take_the_reactivity_cores_own_path(mean, unc):
         preset = get_preset(entry.preset.key)
         assert entry.aqueous.mean_kg == co2_from_disturbed_carbon(mean, preset)
         assert entry.aqueous.uncertainty_kg == co2_from_disturbed_carbon(unc, preset)
+
+
+def test_area_caveats_add_displacement_and_the_cell_count_to_the_model_caveats():
+    """An area estimate (IDEAS.md #1) carries every model caveat plus two of
+    its own: a hypothetical closure DISPLACES effort rather than deleting it,
+    and a box resting on few cells has wide relative uncertainty — the count
+    is stated so the reader can judge."""
+    from carbon_atlas.estimates import ESTIMATE_CAVEATS, area_estimate_caveats
+
+    caveats = area_estimate_caveats(cells_mapped=2)
+
+    assert caveats[: len(ESTIMATE_CAVEATS)] == ESTIMATE_CAVEATS
+    extra = " ".join(caveats[len(ESTIMATE_CAVEATS) :]).lower()
+    assert "displace" in extra
+    assert "2 cells" in extra or "2 mapped cells" in extra
+    assert "uncertaint" in extra
+
+    with pytest.raises(ValueError):
+        area_estimate_caveats(cells_mapped=-1)
