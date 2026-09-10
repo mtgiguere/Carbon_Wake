@@ -67,7 +67,13 @@ docker compose up -d          # PostGIS on localhost:5434
 pytest
 ```
 
-To look at the map (after an ETL run has populated the database):
+To load data (MD5-verified downloads + ETL; see DEPLOY.md step 2b):
+
+```sh
+python -m carbon_atlas backfill 2012 2024
+```
+
+To look at the map (after a year has been loaded):
 
 ```sh
 python manage.py runserver    # then open http://localhost:8000/

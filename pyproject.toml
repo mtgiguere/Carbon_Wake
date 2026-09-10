@@ -81,7 +81,7 @@ source = ["carbon_atlas"]
 # wsgi.py runs only under gunicorn — the omit ADR-0006 pre-authorized for
 # exactly this file class ("settings, migrations, wsgi/asgi"). settings.py
 # stays covered (it executes under pytest).
-omit = ["*/web/wsgi.py"]
+omit = ["*/web/wsgi.py", "*/__main__.py"]  # __main__ exits on import: an entry point, same class
 
 [tool.coverage.report]
 show_missing = true
