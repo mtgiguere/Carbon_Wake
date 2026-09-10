@@ -41,6 +41,12 @@
       <div><span class="swatch" style="background:#fee08b"></span>lighter trawling on mapped carbon (h/km²)</div>
       <div><span class="swatch" style="background:#a50026"></span>heavier trawling on mapped carbon (h/km²)</div>
       <div><span class="swatch" style="background:#9aa5ad"></span>trawling where carbon is unmapped (not zero — unknown)</div>
+      <div id="zones-control" hidden style="margin-top:4px">
+        <label style="cursor:pointer">
+          <input type="checkbox" id="zones-toggle" checked />
+          <span class="swatch" style="background:rgba(27,79,114,0.15);border:1.5px dashed #1b4f72"></span><span id="zones-legend">offshore wind farms in production or under construction — reference zones (EMODnet Human Activities, CC-BY 4.0)</span>
+        </label>
+      </div>
     </div>
     <div id="status">loading…</div>
     <div id="year-control" hidden style="margin-top:8px">
@@ -53,6 +59,7 @@
       </div>
     </div>
     <div id="footprint" hidden style="margin-top:8px;border-top:1px solid #ddd;padding-top:8px"></div>
+    <div id="zone-contrast" hidden style="margin-top:8px;border-top:1px solid #ddd;padding-top:8px"></div>
     <div id="estimate" hidden>
       <hr style="border:none;border-top:1px solid #ddd;margin:10px 0" />
       <div id="estimate-range"></div>

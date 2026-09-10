@@ -9,7 +9,7 @@ database holds real WGS84 polygons a GiST index can do spatial work on.
 
 import json
 from collections import Counter
-from collections.abc import Iterator, Sequence
+from collections.abc import Iterable, Iterator, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from itertools import groupby
@@ -446,4 +446,193 @@ def latest_footprint_summary(conn: psycopg.Connection) -> FootprintSummaryRecord
         mapped=FootprintBracket(lower_m2=row[6], poisson_m2=row[7], upper_m2=row[8]),
         all_effort=FootprintBracket(lower_m2=row[9], poisson_m2=row[10], upper_m2=row[11]),
         per_year_mapped_m2={int(year): area for year, area in per_year.items()},
+    )
+
+
+# ---------------------------------------------------------------------------
+# Reference zones and the inside-vs-ring contrast (ADR-0018)
+# ---------------------------------------------------------------------------
+
+#: The comparison ring's width around every farm, metres.
+ZONE_RING_M = 5000.0
+
+
+@dataclass(frozen=True)
+class StoredZone:
+    """One reference zone as stored, geometry back as GeoJSON."""
+
+    id: int
+    source: str
+    name: str
+    country: str | None
+    status: str
+    commissioned_year: int | None
+    power_mw: float | None
+    turbines: int | None
+    area_km2: float | None
+    geometry: dict
+
+
+_INSERT_ZONE = (
+    "INSERT INTO reference_zone (source, name, country, status, commissioned_year, power_mw,"
+    " turbines, area_km2, geom, ring_geom)"
+    " SELECT %s, %s, %s, %s, %s, %s, %s, %s, g,"
+    "  ST_Multi(ST_CollectionExtract(ST_Difference("
+    "    ST_Buffer(g::geography, %s)::geometry, g), 3))"
+    " FROM (SELECT ST_Multi(ST_CollectionExtract(ST_MakeValid("
+    "  ST_SetSRID(ST_GeomFromGeoJSON(%s), 4326)), 3)) AS g) AS s"
+)
+
+# Every farm of the source is carved out of every ring, so a neighbouring
+# farm's interior never counts as "surroundings".
+_CARVE_RINGS = (
+    "UPDATE reference_zone r SET ring_geom = ST_Multi(ST_CollectionExtract("
+    " ST_Difference(r.ring_geom, u.g), 3))"
+    " FROM (SELECT ST_Union(geom) AS g FROM reference_zone WHERE source = %s) AS u"
+    " WHERE r.source = %s"
+)
+
+
+def store_wind_farm_zones(conn: psycopg.Connection, zones: Iterable, *, source: str) -> int:
+    """Replace ``source``'s zones with ``zones`` (a snapshot, not an append);
+    each ring is the 5 km buffer minus every farm. Returns the count stored."""
+    conn.execute("DELETE FROM reference_zone WHERE source = %s", (source,))
+    count = 0
+    with conn.cursor() as cur:
+        for zone in zones:
+            cur.execute(
+                _INSERT_ZONE,
+                (
+                    source,
+                    zone.name,
+                    zone.country,
+                    zone.status,
+                    zone.commissioned_year,
+                    zone.power_mw,
+                    zone.turbines,
+                    zone.area_km2,
+                    ZONE_RING_M,
+                    json.dumps(dict(zone.geometry)),
+                ),
+            )
+            count += 1
+    conn.execute(_CARVE_RINGS, (source, source))
+    return count
+
+
+def list_wind_farm_zones(conn: psycopg.Connection) -> tuple[StoredZone, ...]:
+    """Every stored zone, oldest first, geometry as GeoJSON."""
+    rows = conn.execute(
+        "SELECT id, source, name, country, status, commissioned_year, power_mw, turbines,"
+        " area_km2, ST_AsGeoJSON(geom) FROM reference_zone ORDER BY id"
+    ).fetchall()
+    return tuple(StoredZone(*row[:9], geometry=json.loads(row[9])) for row in rows)
+
+
+@dataclass(frozen=True)
+class ZoneMeasurement:
+    """One country's raw measurement for one run: farms measured (commissioned
+    by the cutoff), farms whose year is unknown (counted only), and the
+    hours and full areas inside and in the ring. Densities and the ratio are
+    the pure layer's (carbon_atlas.zones.zone_contrast)."""
+
+    country: str
+    farms: int
+    farms_without_year: int
+    farm_km2: float
+    inside_hours: float
+    ring_km2: float
+    ring_hours: float
+
+
+_MEASURE = (
+    "WITH z AS (SELECT coalesce(country, 'unknown') AS country, commissioned_year, geom,"
+    " ring_geom FROM reference_zone WHERE status = 'Production'),"
+    " measured AS (SELECT country, count(*) AS farms,"
+    "  sum(ST_Area(geom::geography)) / 1e6 AS farm_km2,"
+    "  sum(ST_Area(ring_geom::geography)) / 1e6 AS ring_km2,"
+    "  sum((SELECT coalesce(sum(c.fishing_hours"
+    "   * ST_Area(ST_Intersection(c.geom, z.geom)::geography) / ST_Area(c.geom::geography)), 0)"
+    "   FROM overlap_cell c WHERE c.run_id = %s AND c.geom && z.geom"
+    "   AND ST_Intersects(c.geom, z.geom))) AS inside_hours,"
+    "  sum((SELECT coalesce(sum(c.fishing_hours"
+    "   * ST_Area(ST_Intersection(c.geom, z.ring_geom)::geography)"
+    "   / ST_Area(c.geom::geography)), 0)"
+    "   FROM overlap_cell c WHERE c.run_id = %s AND c.geom && z.ring_geom"
+    "   AND ST_Intersects(c.geom, z.ring_geom))) AS ring_hours"
+    "  FROM z WHERE commissioned_year IS NOT NULL AND commissioned_year <= %s GROUP BY country),"
+    " unknown AS (SELECT country, count(*) AS n FROM z WHERE commissioned_year IS NULL"
+    "  GROUP BY country)"
+    " SELECT coalesce(m.country, u.country), coalesce(m.farms, 0), coalesce(u.n, 0),"
+    "  coalesce(m.farm_km2, 0), coalesce(m.inside_hours, 0), coalesce(m.ring_km2, 0),"
+    "  coalesce(m.ring_hours, 0)"
+    " FROM measured m FULL JOIN unknown u USING (country) ORDER BY 1"
+)
+
+
+def measure_zone_contrast(
+    conn: psycopg.Connection, run_id: int, *, cutoff_year: int
+) -> tuple[ZoneMeasurement, ...]:
+    """Per country: hours of ``run_id`` inside PRODUCING farms commissioned by
+    ``cutoff_year`` and in their rings, apportioned by the intersected
+    fraction of each cell, plus the full zone areas. Farms under construction
+    exclude nothing yet (their year is a plan) and are neither measured nor
+    counted — though every farm is carved out of every ring, since a building
+    site is not open fishing ground either. Unknown run: KeyError."""
+    if conn.execute("SELECT 1 FROM etl_run WHERE id = %s", (run_id,)).fetchone() is None:
+        raise KeyError(f"no etl_run with id {run_id}")
+    rows = conn.execute(_MEASURE, (run_id, run_id, cutoff_year)).fetchall()
+    return tuple(ZoneMeasurement(*row) for row in rows)
+
+
+@dataclass(frozen=True)
+class ZoneContrastRecord:
+    """One run's stored measurement rows."""
+
+    run_id: int
+    cutoff_year: int
+    computed_at: datetime
+    rows: tuple[ZoneMeasurement, ...]
+
+
+def store_zone_contrast(
+    conn: psycopg.Connection, run_id: int, *, cutoff_year: int, rows: Iterable[ZoneMeasurement]
+) -> None:
+    """Replace the run's stored measurement with ``rows``."""
+    conn.execute("DELETE FROM zone_contrast_summary WHERE run_id = %s", (run_id,))
+    with conn.cursor() as cur:
+        for m in rows:
+            cur.execute(
+                "INSERT INTO zone_contrast_summary (run_id, country, cutoff_year, farms,"
+                " farms_without_year, farm_km2, inside_hours, ring_km2, ring_hours)"
+                " VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                (
+                    run_id,
+                    m.country,
+                    cutoff_year,
+                    m.farms,
+                    m.farms_without_year,
+                    m.farm_km2,
+                    m.inside_hours,
+                    m.ring_km2,
+                    m.ring_hours,
+                ),
+            )
+
+
+def load_zone_contrast(conn: psycopg.Connection, run_id: int) -> ZoneContrastRecord | None:
+    """The run's stored measurement, or None when none was computed."""
+    rows = conn.execute(
+        "SELECT country, farms, farms_without_year, farm_km2, inside_hours, ring_km2,"
+        " ring_hours, cutoff_year, computed_at FROM zone_contrast_summary"
+        " WHERE run_id = %s ORDER BY country",
+        (run_id,),
+    ).fetchall()
+    if not rows:
+        return None
+    return ZoneContrastRecord(
+        run_id=run_id,
+        cutoff_year=rows[0][7],
+        computed_at=rows[0][8],
+        rows=tuple(ZoneMeasurement(*row[:7]) for row in rows),
     )

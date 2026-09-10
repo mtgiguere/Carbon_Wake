@@ -154,3 +154,24 @@ reproduction against the authors' own published raster.
       redistribution.
 - [ ] Spot-check the ICES VMS bottom-trawl footprint as validator [UNVERIFIED
       lead].
+
+---
+
+## Addendum (2026-09-08): reference zones — EMODnet offshore wind farms
+
+- **Source:** EMODnet Human Activities, "Wind Farms (Polygons)", CETMAR for
+  EMODnet, updated yearly. WFS 2.0 at
+  `https://ows.emodnet-humanactivities.eu/wfs` (GetCapabilities lists
+  `emodnet:windfarms` points and `emodnet:windfarmspoly` polygons; output
+  formats include application/json, SHAPE-ZIP, CSV) [VERIFIED — capabilities
+  fetched 2026-09-08]. A full GetFeature of the polygons is ~1.8 MB, 600
+  features Europe-wide, EPSG:4326 [VERIFIED].
+- **License:** CC-BY 4.0, stated in the ISO metadata record
+  8201070b-4b0b-4d54-8910-abcea5dce57f under otherConstraints [VERIFIED].
+- **Quirk:** a WFS `BBOX=` filter in EPSG:4326 returned zero features (axis
+  order); fetch everything and filter locally [VERIFIED].
+- **Attributes:** name, country, status (Production / Construction /
+  Approved / Planned / Dismantled / Test site — not "Operational"), year
+  (null for 44 of 160 producing farms), power_mw, n_turbines, area_sqkm,
+  type_inst, updateyear, notes [VERIFIED from the payload].
+- **Use:** ADR-0018 — reference zones + per-country inside/ring contrast.

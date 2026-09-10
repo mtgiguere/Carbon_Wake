@@ -42,7 +42,14 @@ once since 2012?"* — Amoroso-style, using machinery we already have
 - Watch: cross-year union must handle AIS coverage growth (early years
   under-detect; the footprint is a lower bound and must say so).
 
-## 3. "Accidental sanctuaries" — the wind-farm layer
+## 3. "Accidental sanctuaries" — the wind-farm layer — DONE 2026-09-10
+
+> Shipped as ADR-0018, with the verification this note demanded: the
+> exclusion is real but NATIONAL (2024 inside/ring ratio 0.01 BE, 0.04 DE,
+> 0.07 DK, 0.13 NL, 0.81 UK where fishing is often permitted; 0.41 overall;
+> the UK was 0.02 in 2016 before its giant 2019–2023 farms). So it ships as a
+> per-country measured contrast with caveats, not as a blanket sanctuary
+> story. Original note:
 
 Offshore wind farms are de facto trawl-exclusion zones; EMODnet publishes
 their footprints openly. Overlaid on 2024 effort they should appear as

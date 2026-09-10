@@ -511,3 +511,64 @@ documented command, DEPLOY.md); a stale summary names its own years, so
 staleness is visible, not silent. (c) `tests/web` gained a fixture that
 empties the ETL-owned tables between transactional page tests — Django's
 flush never knew about them, a latent leak this slice exposed.
+
+---
+
+## 2026-09-10 — ADR-0018: Wind farms as reference zones, with a measured — never assumed — exclusion
+
+**Context.** IDEAS.md #3 proposed offshore wind farms as "accidental
+sanctuaries": de facto trawl exclosures that should appear as holes in the
+effort layer, doubling as the reference zones the validation spike wants.
+Its own honesty rule was to verify the exclusion in OUR data before narrating
+it, and to label commissioning dates. The verification (spike 2026-09-08,
+product measurement 2026-09-10 on the 2024 run: producing farms commissioned
+by 2023, hours per km² of FULL zone area) found the effect real but national:
+inside/ring density ratio 0.01 (Belgium), 0.04 (Germany), 0.07 (Denmark),
+0.13 (Netherlands), **0.81 (United Kingdom, where many farms permit
+fishing)**, 0.41 overall — and the UK ratio was 0.02 in 2016 before its giant
+offshore farms of 2019–2023 entered the set. A blanket "sanctuary" story
+would have been false for the largest national fleet of farms. (The spike's
+looser rules — unknown-year and under-construction farms included — had
+given 0.48 for the UK and a spurious 2012 "no deficit"; SCIENCE_BASIS records
+both and why they differ.)
+
+**Decision.**
+
+1. **Source: EMODnet Human Activities "Wind Farms (Polygons)"**, WFS layer
+   `emodnet:windfarmspoly`, CC-BY 4.0 (verified in its metadata record).
+   Fetched as a GeoJSON file into `data/reference/` like every other source
+   (never committed; a verbatim 5-farm sample lives in tests/fixtures/real/
+   emodnet/). Loaded as a **replaceable snapshot** (`run_wind_farm_zones`),
+   scoped to the carbon rasters' WGS84 envelope (+ an optional margin so
+   farms just outside the mapped carbon still frame the map). Only
+   **Production and Construction** statuses become zones; Planned, Approved,
+   Dismantled, and Test site farms exclude nothing.
+2. **The contrast is measured, offline, per run, per country**
+   (`run_zone_contrasts`): hours inside farms commissioned before the run's
+   effort year versus hours in a **5 km ring** (buffer minus every farm),
+   both apportioned by the intersected fraction of each cell and divided by
+   the FULL zone area — zero-effort seabed counts, that is the whole point.
+   Farms whose commissioning year EMODnet does not record are **counted,
+   never measured**. Rings are precomputed at load time; results are stored
+   (`zone_contrast_summary`) so the API never re-measures.
+3. **Served per country, never as one number.** `/api/runs/<id>/zone-contrast/`
+   carries each country's farms, unmeasured farms, densities, and ratio (None
+   when the ring saw no effort — no number rather than infinity), a total,
+   the cutoff year, the source, and caveats naming the UK exception, the
+   ring's non-matched-control status, midwater contamination, and AIS growth.
+4. **The map layer is categorical**: a faint fill plus a dashed outline,
+   labeled with source and license in the legend, toggleable, pixel-tested
+   (Blind spot B) over a real farm. Color still encodes only measured
+   quantities — the zone fill is a boundary, and the legend says so.
+5. **Storytelling constraint.** "Trawling stops at the farm boundary" may be
+   said only where the measured ratio for that country supports it; the UK's
+   ratio is shown beside the others so the exception is visible, not hidden.
+
+**Consequences.** (a) The atlas gains its first reference-zone layer and an
+inside/outside instrument the validation spike can reuse. (b) Each new run
+needs `run_zone_contrasts` (idempotent) — DEPLOY.md step 2c. (c) The ring is a
+comparison area, not a control; a matched-control design (depth, sediment,
+distance to port) is future work and is said so on the panel. (d) Areas in
+this feature are PostGIS ellipsoidal (geography); the footprint's cell areas
+are spherical — each metric is internally consistent, and they are never
+mixed (they differ by ~0.4 %).

@@ -39,7 +39,8 @@ def db_conn():
     # exactly what a fresh install gets, immune to pre-1.0 schema evolution
     # (ADR-0013: recreate, don't migrate).
     conn.execute(
-        "DROP TABLE IF EXISTS footprint_summary; DROP TABLE IF EXISTS overlap_cell;"
+        "DROP TABLE IF EXISTS zone_contrast_summary; DROP TABLE IF EXISTS reference_zone;"
+        " DROP TABLE IF EXISTS footprint_summary; DROP TABLE IF EXISTS overlap_cell;"
         " DROP TABLE IF EXISTS etl_run"
     )
     apply_schema(conn)
@@ -52,4 +53,5 @@ def conn(db_conn):
     """A clean-slate connection: every ETL-owned table emptied before each test."""
     db_conn.execute("TRUNCATE etl_run RESTART IDENTITY CASCADE")
     db_conn.execute("TRUNCATE footprint_summary RESTART IDENTITY")
+    db_conn.execute("TRUNCATE reference_zone RESTART IDENTITY")
     return db_conn

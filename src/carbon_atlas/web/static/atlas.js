@@ -14,6 +14,9 @@
  *   window.__atlas.currentRun       — the run being displayed
  *   window.__atlas.estimate         — the current run's estimate payload
  *   window.__atlas.footprint        — the cumulative-footprint payload (null: none computed)
+ *   window.__atlas.zones            — the wind-farm zones GeoJSON payload (count may be 0)
+ *   window.__atlas.zoneContrast     — the current run's zone contrast (null: not measured)
+ *   window.__atlas.setZonesVisible(bool)
  *   window.__atlas.setOverlayVisible(bool)
  * ?basemap=none renders without the external basemap so tests exercise OUR
  * layers with zero third-party network dependence.
@@ -131,7 +134,28 @@
         "fill-opacity": 0.75,
       },
     });
+    // Reference zones stay on top of the effort cells across run switches.
+    if (map.getLayer("zones-fill")) { map.moveLayer("zones-fill"); map.moveLayer("zones-outline"); }
     window.__atlas.hasOverlay = true;
+  }
+
+  /* ---------- reference zones: offshore wind farms (ADR-0018) ---------- */
+
+  function addZones(collection) {
+    map.addSource("zones", { type: "geojson", data: collection });
+    // A faint categorical fill (this is a ZONE, not a measured quantity —
+    // the legend says so) plus a dashed outline that survives any zoom.
+    map.addLayer({
+      id: "zones-fill", type: "fill", source: "zones",
+      paint: { "fill-color": "#1b4f72", "fill-opacity": 0.15 },
+    });
+    map.addLayer({
+      id: "zones-outline", type: "line", source: "zones",
+      paint: { "line-color": "#1b4f72", "line-width": 2, "line-dasharray": [2, 1.5] },
+    });
+    var toggle = document.getElementById("zones-toggle");
+    toggle.addEventListener("change", function () { window.__atlas.setZonesVisible(toggle.checked); });
+    document.getElementById("zones-control").hidden = false;
   }
 
   window.__atlas = {
@@ -142,6 +166,12 @@
     setOverlayVisible: function (visible) {
       var value = visible ? "visible" : "none";
       ["cells-mapped", "cells-unmapped"].forEach(function (id) {
+        if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", value);
+      });
+    },
+    setZonesVisible: function (visible) {
+      var value = visible ? "visible" : "none";
+      ["zones-fill", "zones-outline"].forEach(function (id) {
         if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", value);
       });
     },
@@ -324,6 +354,53 @@
     })
     .catch(function () { window.__atlas.footprint = null; });
 
+  /* ---------- the zone contrast line (ADR-0018) ---------- */
+
+  function density(value) { return value.toFixed(2) + " h/km²"; }
+
+  function farmsText(row) {
+    var text = row.farms + (row.farms === 1 ? " farm" : " farms");
+    if (row.farms_without_year) {
+      text += " (" + row.farms_without_year + " with unknown commissioning year, not measured)";
+    }
+    return text;
+  }
+
+  function contrastText(row) {
+    if (row.inside_density === null) return "no farm measurable";
+    var text = "inside " + density(row.inside_density) + " vs ring " + density(row.ring_density);
+    if (row.ratio === null) return text + " — no effort in the surrounding ring, so no ratio";
+    return text + " — ratio " + row.ratio.toFixed(2);
+  }
+
+  function renderZoneContrast(zc) {
+    var box = document.getElementById("zone-contrast");
+    box.replaceChildren();
+    if (!zc) { box.hidden = true; return; }
+    box.appendChild(
+      el("strong", "Trawling inside wind farms vs their " + Math.round(zc.ring_width_m / 1000) +
+        " km surroundings, " + zc.effort_year)
+    );
+    box.appendChild(
+      el("div", "farms commissioned by " + zc.cutoff_year + "; density over the FULL zone area, " +
+        "zero-effort parts included", { style: "font-size:11px;color:#777" })
+    );
+    box.appendChild(el("div", "all countries: " + farmsText(zc.total) + " — " + contrastText(zc.total)));
+    var list = el("ul", null, { style: "margin:4px 0 0 16px;padding:0;color:#555" });
+    zc.countries.forEach(function (row) {
+      list.appendChild(el("li", row.country + ": " + farmsText(row) + " — " + contrastText(row)));
+    });
+    box.appendChild(list);
+    var details = el("details", null, { style: "margin-top:4px" });
+    details.appendChild(el("summary", "what this contrast is not", { style: "cursor:pointer" }));
+    var caveats = el("ul", null, { style: "margin:6px 0 0 16px;padding:0;font-size:11px;color:#555" });
+    zc.caveats.forEach(function (c) { caveats.appendChild(el("li", c, { style: "margin-bottom:3px" })); });
+    details.appendChild(caveats);
+    details.appendChild(el("div", zc.source, { style: "font-size:11px;color:#777;margin-top:4px" }));
+    box.appendChild(details);
+    box.hidden = false;
+  }
+
   /* ---------- runs and the year axis ---------- */
 
   function selectRun(run) {
@@ -338,6 +415,10 @@
       .then(function (r) { return r.json(); })
       .then(renderEstimate)
       .catch(function (error) { statusBox.textContent = "failed to load estimate: " + error; });
+    fetch("/api/runs/" + run.id + "/zone-contrast/")
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (zc) { window.__atlas.zoneContrast = zc; renderZoneContrast(zc); })
+      .catch(function () { window.__atlas.zoneContrast = null; renderZoneContrast(null); });
   }
 
   function wireYears(runs) {
@@ -369,6 +450,13 @@
   }
 
   map.on("load", function () {
+    fetch("/api/zones/wind-farms/")
+      .then(function (r) { return r.json(); })
+      .then(function (collection) {
+        window.__atlas.zones = collection;
+        if (collection.count > 0) addZones(collection);
+      })
+      .catch(function (error) { statusBox.textContent = "failed to load reference zones: " + error; });
     fetch("/api/runs/")
       .then(function (r) { return r.json(); })
       .then(function (body) {

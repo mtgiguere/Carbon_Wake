@@ -34,7 +34,7 @@ On the machine that ran the ETL (dev database on port 5434):
 
 ```sh
 docker exec carbon_wake-postgis-1 pg_dump -U carbon_atlas -d carbon_atlas \
-    --data-only -t etl_run -t overlap_cell -t footprint_summary > atlas_data.sql   # ~90 MB/year
+    --data-only -t etl_run -t overlap_cell -t footprint_summary     -t reference_zone -t zone_contrast_summary > atlas_data.sql   # ~90 MB/year
 scp atlas_data.sql you@vm:Carbon_Wake/
 ```
 
@@ -80,6 +80,37 @@ PY
 in step 2 — `footprint_summary` is in the table list above. A stale summary
 is visible, not silent: the panel names the years it covers.
 
+## 2c. Load the reference zones and measure them (once, then after new years)
+
+Offshore wind farms (ADR-0018) come from EMODnet's WFS as one GeoJSON file
+(CC-BY 4.0; ~1.8 MB, Europe-wide — the loader scopes it to the atlas region):
+
+```sh
+mkdir -p data/reference
+curl -sS -L --fail -o data/reference/emodnet_windfarms_polygons_$(date +%F).geojson   "https://ows.emodnet-humanactivities.eu/wfs?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=emodnet:windfarmspoly&OUTPUTFORMAT=application/json&SRSNAME=EPSG:4326"
+python - <<'PY'
+from pathlib import Path
+import psycopg
+from carbon_atlas.etl import run_wind_farm_zones, run_zone_contrasts
+d = Path("data/diesing2021/Diesing_2021")
+geojson = sorted(Path("data/reference").glob("emodnet_windfarms_polygons_*.geojson"))[-1]
+with psycopg.connect("postgresql://carbon_atlas:carbon_atlas_dev@localhost:5434/carbon_atlas") as conn:
+    print("zones stored", run_wind_farm_zones(
+        conn, geojson=geojson,
+        carbon_mean=d / "OCdensity_quantrf_mean.tif",
+        carbon_uncertainty=d / "OCdensity_quantrf_tot.unc.tif",
+    ))
+    print("runs measured", run_zone_contrasts(conn))   # idempotent: only unmeasured runs
+    conn.commit()
+PY
+```
+
+Executed 2026-09-10 on the dev database: 169 zones in 2 s, six runs measured
+in 8 s. Re-run the Python step after every new year (it measures only runs
+without a stored contrast); re-run both steps to refresh the EMODnet snapshot
+(replacing zones does NOT invalidate stored contrasts — delete
+`zone_contrast_summary` rows first if the polygons changed).
+
 ## 3. Verify like we do
 
 ```sh
@@ -87,6 +118,7 @@ curl -s https://your-domain/api/runs/           # run list with provenance
 curl -s -o /dev/null -w "%{http_code} %{size_download}\n" \
     https://your-domain/api/runs/2/tiles/5/16/10.mvt   # ~200 KB, sub-second
 curl -s https://your-domain/api/footprint/      # the bracket, or 404 until step 2b has run
+curl -s https://your-domain/api/zones/wind-farms/ | head -c 300   # zones GeoJSON (count 0 until 2c)
 ```
 
 Then open the site and drag the slider. If the map is empty but the panel

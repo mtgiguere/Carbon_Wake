@@ -13,11 +13,15 @@ from rest_framework.views import APIView
 
 from carbon_atlas.anchors import AnchorCount, anchor_counts
 from carbon_atlas.db.store import (
+    ZONE_RING_M,
+    ZoneMeasurement,
     cells_tile_mvt,
     get_run,
     latest_footprint_summary,
     list_runs,
+    list_wind_farm_zones,
     load_overlap,
+    load_zone_contrast,
     trawled_cells_intersecting,
 )
 from carbon_atlas.disturbance import gear_profiles_for_year
@@ -32,6 +36,7 @@ from carbon_atlas.estimates import (
 from carbon_atlas.footprint import FOOTPRINT_CAVEATS, FOOTPRINT_METHOD, FootprintBracket
 from carbon_atlas.overlap import TrawledCell
 from carbon_atlas.reactivity.presets import PUBLISHED_PRESETS
+from carbon_atlas.zones import EMODNET_WINDFARMS_SOURCE, ZONE_CAVEATS, zone_contrast
 
 
 def _store_connection() -> psycopg.Connection:
@@ -281,6 +286,110 @@ class FootprintView(APIView):
                 },
                 "method": dict(FOOTPRINT_METHOD),
                 "caveats": list(FOOTPRINT_CAVEATS),
+            }
+        )
+
+
+class WindFarmZonesView(APIView):
+    """The reference zones (ADR-0018) as GeoJSON: every stored offshore wind
+    farm in production or under construction, with EMODnet's facts, its
+    source, and the license, per feature. No zones is an empty collection."""
+
+    def get(self, request: Request) -> Response:
+        zones = list_wind_farm_zones(_store_connection())
+        return Response(
+            {
+                "type": "FeatureCollection",
+                "kind": "offshore wind farms in production or under construction",
+                "license": "CC-BY 4.0 (EMODnet Human Activities)",
+                "count": len(zones),
+                "features": [
+                    {
+                        "type": "Feature",
+                        "id": zone.id,
+                        "geometry": zone.geometry,
+                        "properties": {
+                            "name": zone.name,
+                            "country": zone.country,
+                            "status": zone.status,
+                            "commissioned_year": zone.commissioned_year,
+                            "power_mw": zone.power_mw,
+                            "turbines": zone.turbines,
+                            "area_km2": zone.area_km2,
+                            "source": zone.source,
+                        },
+                    }
+                    for zone in zones
+                ],
+            }
+        )
+
+
+def _contrast_payload(m: ZoneMeasurement) -> dict:
+    """One measurement with its densities and ratio from the pure layer — or
+    without them when nothing was measurable (only year-unknown farms)."""
+    payload = {
+        "country": m.country,
+        "farms": m.farms,
+        "farms_without_year": m.farms_without_year,
+        "farm_km2": m.farm_km2,
+        "inside_hours": m.inside_hours,
+        "ring_km2": m.ring_km2,
+        "ring_hours": m.ring_hours,
+        "inside_density": None,
+        "ring_density": None,
+        "ratio": None,
+    }
+    if m.farm_km2 > 0.0 and m.ring_km2 > 0.0:
+        contrast = zone_contrast(
+            farm_km2=m.farm_km2,
+            inside_hours=m.inside_hours,
+            ring_km2=m.ring_km2,
+            ring_hours=m.ring_hours,
+        )
+        payload.update(
+            inside_density=contrast.inside_density,
+            ring_density=contrast.ring_density,
+            ratio=contrast.ratio,
+        )
+    return payload
+
+
+class RunZoneContrastView(APIView):
+    """A run's trawl density inside wind farms versus their 5 km rings, per
+    country and in total (ADR-0018), with the cutoff year, the count of farms
+    that could not be measured, the source, and the caveats. Not measured
+    yet is a 404, never a zero."""
+
+    def get(self, request: Request, run_id: int) -> Response:
+        conn = _store_connection()
+        try:
+            run = get_run(conn, run_id)
+        except KeyError as exc:
+            raise NotFound(str(exc)) from exc
+        record = load_zone_contrast(conn, run_id)
+        if record is None:
+            raise NotFound(f"no zone contrast has been measured for run {run_id} yet")
+        total = ZoneMeasurement(
+            country="all",
+            farms=sum(m.farms for m in record.rows),
+            farms_without_year=sum(m.farms_without_year for m in record.rows),
+            farm_km2=sum(m.farm_km2 for m in record.rows),
+            inside_hours=sum(m.inside_hours for m in record.rows),
+            ring_km2=sum(m.ring_km2 for m in record.rows),
+            ring_hours=sum(m.ring_hours for m in record.rows),
+        )
+        return Response(
+            {
+                "run_id": run.id,
+                "effort_year": run.effort_year,
+                "cutoff_year": record.cutoff_year,
+                "computed_at": record.computed_at,
+                "ring_width_m": ZONE_RING_M,
+                "countries": [_contrast_payload(m) for m in record.rows],
+                "total": _contrast_payload(total),
+                "source": EMODNET_WINDFARMS_SOURCE,
+                "caveats": list(ZONE_CAVEATS),
             }
         )
 
