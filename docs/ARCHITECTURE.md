@@ -201,6 +201,12 @@ suites grow, the fast unit run is `pytest -m "not integration and not visual"`.
    pure parser + contrast arithmetic; PostGIS does the apportioning); served
    as GeoJSON + `/api/runs/<id>/zone-contrast/`; a toggleable, pixel-tested
    layer and a per-country line on the panel.
+6d. **Data operations as product code** (2026-09-10, RIGOR rule 7):
+   `carbon_atlas.dataops` (Zenodo manifest, MD5 verification, verified
+   downloads — pure by injection) and `carbon_atlas.cli` (`python -m
+   carbon_atlas`: backfill, fetch-year, etl-year, footprint, zones,
+   zone-contrasts), replacing the untested scripts and runbook snippets that
+   produced the 2026-09-08 incidents.
 7. **Docker Compose deployment** ← we are here. The production stack exists
    and was first-run VERIFIED locally end to end (image built, Caddy → 
    gunicorn → WhiteNoise → PostGIS, real data restored, map rendered):

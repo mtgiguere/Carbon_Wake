@@ -49,67 +49,46 @@ docker compose -f docker-compose.prod.yml restart web   # entrypoint re-runs ANA
 statistics, the first tile queries seq-scan 371k rows, blow past gunicorn's
 timeout, and the map renders empty. (Found the hard way; see RIGOR.md.)
 
-Alternatively, run the ETL on the VM itself (needs the GFW year zip and the
-Diesing rasters downloaded there — see docs/DATA_SPIKE.md for sources; ~6
-minutes per year once downloaded).
+Alternatively, run the data-ops commands on the VM itself (step 2b; needs the
+Diesing rasters downloaded there — docs/DATA_SPIKE.md; ~6–45 minutes per year
+depending on the year's size and the machine).
 
-## 2b. Recompute the cumulative footprint (after any new year lands)
+## 2b. The data-ops commands (RIGOR.md rule 7: tested, in the repo)
 
-The footprint headline (ADR-0017) is an offline summary over every stored
-year; it does not update itself. After loading or adding runs, on the machine
-holding the Diesing rasters (the dev box, or the VM after an on-VM ETL):
+Every data step is a `python -m carbon_atlas` command — the same code the test
+suite exercises, with the publisher's MD5 checked on every download. All take
+`--dsn` (default `$CARBON_ATLAS_DB_URL`, else the dev database), `--data-dir`
+(default `data/gfw`), and `--carbon-mean` / `--carbon-uncertainty` (default the
+Diesing rasters under `data/diesing2021/Diesing_2021`). Unset `PROJ_LIB` first
+on a Windows dev box (CONTRIBUTING.md).
 
 ```sh
-python - <<'PY'
-from pathlib import Path
-import psycopg
-from carbon_atlas.etl import run_footprint_summary
-d = Path("data/diesing2021/Diesing_2021")
-with psycopg.connect("postgresql://carbon_atlas:carbon_atlas_dev@localhost:5434/carbon_atlas") as conn:
-    print("footprint summary id", run_footprint_summary(
-        conn=conn,
-        carbon_mean=d / "OCdensity_quantrf_mean.tif",
-        carbon_uncertainty=d / "OCdensity_quantrf_tot.unc.tif",
-    ))
-    conn.commit()
-PY
+python -m carbon_atlas backfill 2012 2024       # fetch (MD5-verified) + load every missing year,
+                                                # then refresh the footprint and zone contrasts
+python -m carbon_atlas fetch-year 2017          # one year zip, verified against Zenodo's record
+python -m carbon_atlas etl-year 2017            # load one year already on disk (idempotent)
+python -m carbon_atlas footprint                # recompute the cumulative footprint (ADR-0017)
+python -m carbon_atlas zones data/reference/emodnet_windfarms_polygons_<date>.geojson
+                                                # (re)load wind-farm reference zones (ADR-0018)
+python -m carbon_atlas zone-contrasts           # measure runs not yet measured (idempotent)
 ```
 
-(Unset `PROJ_LIB` first on a Windows dev box — CONTRIBUTING.md.) Executed
-2026-09-08 over five years / 1.43 M cells: 44 seconds. Then ship the dump as
-in step 2 — `footprint_summary` is in the table list above. A stale summary
-is visible, not silent: the panel names the years it covers.
-
-## 2c. Load the reference zones and measure them (once, then after new years)
-
-Offshore wind farms (ADR-0018) come from EMODnet's WFS as one GeoJSON file
-(CC-BY 4.0; ~1.8 MB, Europe-wide — the loader scopes it to the atlas region):
+The wind-farm polygons come from EMODnet's WFS as one GeoJSON file (CC-BY 4.0;
+~1.8 MB Europe-wide — the loader scopes it to the atlas region):
 
 ```sh
 mkdir -p data/reference
-curl -sS -L --fail -o data/reference/emodnet_windfarms_polygons_$(date +%F).geojson   "https://ows.emodnet-humanactivities.eu/wfs?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=emodnet:windfarmspoly&OUTPUTFORMAT=application/json&SRSNAME=EPSG:4326"
-python - <<'PY'
-from pathlib import Path
-import psycopg
-from carbon_atlas.etl import run_wind_farm_zones, run_zone_contrasts
-d = Path("data/diesing2021/Diesing_2021")
-geojson = sorted(Path("data/reference").glob("emodnet_windfarms_polygons_*.geojson"))[-1]
-with psycopg.connect("postgresql://carbon_atlas:carbon_atlas_dev@localhost:5434/carbon_atlas") as conn:
-    print("zones stored", run_wind_farm_zones(
-        conn, geojson=geojson,
-        carbon_mean=d / "OCdensity_quantrf_mean.tif",
-        carbon_uncertainty=d / "OCdensity_quantrf_tot.unc.tif",
-    ))
-    print("runs measured", run_zone_contrasts(conn))   # idempotent: only unmeasured runs
-    conn.commit()
-PY
+curl -sS -L --fail -o data/reference/emodnet_windfarms_polygons_$(date +%F).geojson \
+  "https://ows.emodnet-humanactivities.eu/wfs?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=emodnet:windfarmspoly&OUTPUTFORMAT=application/json&SRSNAME=EPSG:4326"
 ```
 
-Executed 2026-09-10 on the dev database: 169 zones in 2 s, six runs measured
-in 8 s. Re-run the Python step after every new year (it measures only runs
-without a stored contrast); re-run both steps to refresh the EMODnet snapshot
-(replacing zones does NOT invalidate stored contrasts — delete
-`zone_contrast_summary` rows first if the polygons changed).
+Notes. A failed download or a missing file exits 2 with the reason on stderr;
+a year already loaded is skipped, never duplicated. Replacing the zones does
+NOT invalidate stored contrasts — delete `zone_contrast_summary` rows first
+if the polygons changed. A stale footprint is visible, not silent: the panel
+names the years it covers. First-run: `etl-year`, `footprint`, `zones`, and
+`zone-contrasts` were executed against the dev database on 2026-09-10 (see the
+CLI's integration tests for the same sequence against the test database).
 
 ## 3. Verify like we do
 
