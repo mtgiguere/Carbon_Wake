@@ -6,7 +6,14 @@
 > deliberately never. Bigger, maturer spikes live in their own docs
 > (SHOWCASE_SPIKE.md, VALIDATION_SPIKE.md); this file is the wider net.
 
-## 1. "Draw your own area" — the personal query
+## 1. "Draw your own area" — the personal query — DONE 2026-09-10
+
+> Shipped: `GET /api/runs/<id>/estimate/?bbox=…` (the same pure chain over
+> the cells the box intersects, with the box's own coverage disclosure and
+> two extra caveats — displacement, and the cell count the figure rests
+> on) and a draw tool on the map (drag a box; the panel becomes that
+> area's cited range; one click back to the whole region). The original
+> note, kept for the record:
 
 Drag a box (or pick a named area) and get the disputed number for THAT patch:
 hours, disturbed carbon, the Sala↔Hiddink range, caveats attached. Turns the

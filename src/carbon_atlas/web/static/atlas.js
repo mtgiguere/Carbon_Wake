@@ -12,7 +12,9 @@
  *   window.__atlas.map              — the MapLibre map
  *   window.__atlas.hasOverlay       — overlay layers exist
  *   window.__atlas.currentRun       — the run being displayed
- *   window.__atlas.estimate         — the current run's estimate payload
+ *   window.__atlas.estimate         — the estimate on the panel (region, or the drawn area's)
+ *   window.__atlas.regionEstimate   — the current run's whole-region estimate
+ *   window.__atlas.area             — {bbox, estimate} for the drawn box, or null
  *   window.__atlas.footprint        — the cumulative-footprint payload (null: none computed)
  *   window.__atlas.zones            — the wind-farm zones GeoJSON payload (count may be 0)
  *   window.__atlas.zoneContrast     — the current run's zone contrast (null: not measured)
@@ -163,6 +165,8 @@
     hasOverlay: false,
     currentRun: null,
     estimate: null,
+    regionEstimate: null,
+    area: null,
     setOverlayVisible: function (visible) {
       var value = visible ? "visible" : "none";
       ["cells-mapped", "cells-unmapped"].forEach(function (id) {
@@ -199,9 +203,16 @@
         ? " (inferred)" : "";
       return co2Text(entry.aqueous_co2) + " — " + entry.preset.label + flag;
     }
-    box.appendChild(
-      el("strong", "First-year aqueous CO₂, " + estimate.effort_year + " (mapped effort only)")
-    );
+    var scope = estimate.area ? "Your area — first-year aqueous CO₂, " : "First-year aqueous CO₂, ";
+    box.appendChild(el("strong", scope + estimate.effort_year + " (mapped effort only)"));
+    if (estimate.area) {
+      box.appendChild(
+        el("div", "your box rests on " + estimate.area.cells_mapped.toLocaleString("en-US") +
+          " mapped cells; " + estimate.area.cells_unmapped.toLocaleString("en-US") +
+          " unmapped cells (" + Math.round(estimate.area.fishing_hours_unmapped).toLocaleString("en-US") +
+          " h) are excluded", { style: "color:#555" })
+      );
+    }
     box.appendChild(el("div", "low: " + endText(low)));
     box.appendChild(el("div", "high: " + endText(high)));
     // Anchor BOTH ends in the same everyday unit: the range is the message.
@@ -260,6 +271,7 @@
 
   function renderEstimate(estimate) {
     window.__atlas.estimate = estimate;
+    if (!estimate.area) window.__atlas.regionEstimate = estimate;
     presetStops = estimate.estimates.slice().sort(function (a, b) {
       return (a.preset.remineralization_fraction - b.preset.remineralization_fraction) ||
              (a.preset.key < b.preset.key ? -1 : 1);
@@ -401,19 +413,104 @@
     box.hidden = false;
   }
 
+  /* ---------- draw your own area (IDEAS.md #1) ---------- */
+
+  var drawing = false;
+  var dragStart = null;
+  var runStatus = "";  // the run's own status line, restored after draw-mode prompts
+
+  function boxGeoJSON(a, b) {
+    var w = Math.min(a.lng, b.lng), e = Math.max(a.lng, b.lng);
+    var s = Math.min(a.lat, b.lat), n = Math.max(a.lat, b.lat);
+    return { type: "Feature", properties: {}, geometry: { type: "Polygon",
+      coordinates: [[[w, s], [e, s], [e, n], [w, n], [w, s]]] } };
+  }
+
+  function setBox(feature) {
+    var data = feature ? { type: "FeatureCollection", features: [feature] }
+                       : { type: "FeatureCollection", features: [] };
+    if (map.getSource("area-box")) { map.getSource("area-box").setData(data); return; }
+    map.addSource("area-box", { type: "geojson", data: data });
+    map.addLayer({ id: "area-box-fill", type: "fill", source: "area-box",
+      paint: { "fill-color": "#000000", "fill-opacity": 0.08 } });
+    map.addLayer({ id: "area-box-outline", type: "line", source: "area-box",
+      paint: { "line-color": "#111111", "line-width": 2.5 } });
+  }
+
+  function exitDrawMode() {
+    drawing = false;
+    dragStart = null;
+    map.dragPan.enable();
+    map.getCanvas().style.cursor = "";
+  }
+
+  function fetchAreaEstimate(run, bbox) {
+    var query = [bbox.lon_min, bbox.lat_min, bbox.lon_max, bbox.lat_max].join(",");
+    return fetch("/api/runs/" + run.id + "/estimate/?bbox=" + query)
+      .then(function (r) { return r.json(); })
+      .then(function (estimate) {
+        window.__atlas.area = { bbox: bbox, estimate: estimate };
+        renderEstimate(estimate);
+        document.getElementById("clear-area").hidden = false;
+        statusBox.textContent = runStatus;
+      })
+      .catch(function (error) { statusBox.textContent = "failed to load area estimate: " + error; });
+  }
+
+  document.getElementById("draw-area").addEventListener("click", function () {
+    drawing = true;
+    map.dragPan.disable();
+    map.getCanvas().style.cursor = "crosshair";
+    statusBox.textContent = "drag a box on the map to estimate that area";
+  });
+
+  document.getElementById("clear-area").addEventListener("click", function () {
+    window.__atlas.area = null;
+    setBox(null);
+    document.getElementById("clear-area").hidden = true;
+    if (window.__atlas.regionEstimate) renderEstimate(window.__atlas.regionEstimate);
+  });
+
+  map.on("mousedown", function (event) {
+    if (!drawing) return;
+    dragStart = event.lngLat;
+    setBox(boxGeoJSON(dragStart, dragStart));
+  });
+  map.on("mousemove", function (event) {
+    if (!drawing || !dragStart) return;
+    setBox(boxGeoJSON(dragStart, event.lngLat));
+  });
+  map.on("mouseup", function (event) {
+    if (!drawing || !dragStart) return;
+    var start = map.project(dragStart), end = event.point;
+    var degenerate = Math.abs(end.x - start.x) < 3 || Math.abs(end.y - start.y) < 3;
+    var box = boxGeoJSON(dragStart, event.lngLat);
+    exitDrawMode();
+    if (degenerate) { setBox(null); statusBox.textContent = runStatus; return; }
+    setBox(box);
+    var ring = box.geometry.coordinates[0];
+    var bbox = { lon_min: ring[0][0], lat_min: ring[0][1], lon_max: ring[2][0], lat_max: ring[2][1] };
+    fetchAreaEstimate(window.__atlas.currentRun, bbox);
+  });
+
   /* ---------- runs and the year axis ---------- */
 
   function selectRun(run) {
     window.__atlas.currentRun = run;
     addOverlay(run.id);
-    statusBox.textContent =
+    runStatus =
       run.effort_year + ", run " + run.id + ": " +
       run.cells_mapped.toLocaleString("en-US") + " cells on mapped carbon, " +
       run.cells_unmapped.toLocaleString("en-US") +
       " on unmapped seafloor (shown grey — unknown, not zero)";
+    statusBox.textContent = runStatus;
     fetch("/api/runs/" + run.id + "/estimate/")
       .then(function (r) { return r.json(); })
-      .then(renderEstimate)
+      .then(function (estimate) {
+        window.__atlas.regionEstimate = estimate;
+        if (window.__atlas.area) return fetchAreaEstimate(run, window.__atlas.area.bbox);
+        renderEstimate(estimate);
+      })
       .catch(function (error) { statusBox.textContent = "failed to load estimate: " + error; });
     fetch("/api/runs/" + run.id + "/zone-contrast/")
       .then(function (r) { return r.ok ? r.json() : null; })

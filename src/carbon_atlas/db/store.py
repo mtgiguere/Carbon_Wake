@@ -272,6 +272,46 @@ def cells_tile_mvt(conn: psycopg.Connection, run_id: int, *, z: int, x: int, y: 
     return bytes(row[0]) if row[0] is not None else b""
 
 
+def overlap_intersecting(
+    conn: psycopg.Connection,
+    run_id: int,
+    *,
+    lat_min: float,
+    lat_max: float,
+    lon_min: float,
+    lon_max: float,
+) -> OverlapResult:
+    """The run's overlap restricted to cells whose polygons intersect a WGS84
+    bbox — BOTH sides (IDEAS.md #1): the mapped cells an area estimate is
+    priced on, and the unmapped effort inside the box that it must disclose.
+    Unknown run: KeyError naming it."""
+    if conn.execute("SELECT 1 FROM etl_run WHERE id = %s", (run_id,)).fetchone() is None:
+        raise KeyError(f"no etl_run with id {run_id}")
+    rows = conn.execute(
+        "SELECT lat_index, lon_index, fishing_hours_trawlers, fishing_hours_dredge_fishing,"
+        " oc_density_mean, oc_density_uncertainty"
+        " FROM overlap_cell"
+        " WHERE run_id = %s AND ST_Intersects(geom, ST_MakeEnvelope(%s, %s, %s, %s, 4326))"
+        " ORDER BY lat_index, lon_index",
+        (run_id, lon_min, lat_min, lon_max, lat_max),
+    ).fetchall()
+    trawled = tuple(
+        TrawledCell(
+            cell=GridCell(lat_index=lat, lon_index=lon),
+            fishing_hours_by_gear=_by_gear(trawl_hours, dredge_hours),
+            carbon=CarbonDensity(mean=mean, uncertainty=uncertainty),
+        )
+        for lat, lon, trawl_hours, dredge_hours, mean, uncertainty in rows
+        if mean is not None
+    )
+    unmapped = {
+        GridCell(lat_index=lat, lon_index=lon): _by_gear(trawl_hours, dredge_hours)
+        for lat, lon, trawl_hours, dredge_hours, mean, _ in rows
+        if mean is None
+    }
+    return OverlapResult(trawled=trawled, unmapped_effort=unmapped)
+
+
 def trawled_cells_intersecting(
     conn: psycopg.Connection,
     run_id: int,

@@ -22,6 +22,7 @@ from carbon_atlas.db.store import (
     list_wind_farm_zones,
     load_overlap,
     load_zone_contrast,
+    overlap_intersecting,
     trawled_cells_intersecting,
 )
 from carbon_atlas.disturbance import gear_profiles_for_year
@@ -30,6 +31,7 @@ from carbon_atlas.effort.grid import BoundingBox
 from carbon_atlas.estimates import (
     ESTIMATE_CAVEATS,
     CO2Quantity,
+    area_estimate_caveats,
     disturbed_from_cells,
     estimate_region_co2,
 )
@@ -174,50 +176,82 @@ class RunEstimateView(APIView):
             raise NotFound(str(exc)) from exc
 
         profiles = gear_profiles_for_year(run.effort_year)
-        result = load_overlap(conn, run_id)
+        # An optional bbox scopes the estimate to the visitor's own box
+        # (IDEAS.md #1): same pure chain, over the cells the box intersects,
+        # with the box's own coverage disclosure and caveats.
+        bbox = _parse_bbox(request) if "bbox" in request.query_params else None
+        if bbox is None:
+            result = load_overlap(conn, run_id)
+            coverage = {
+                "cells_mapped": run.cells_mapped,
+                "cells_unmapped": run.cells_unmapped,
+                "fishing_hours_mapped": run.fishing_hours_mapped,
+                "fishing_hours_unmapped": run.fishing_hours_unmapped,
+            }
+            caveats = list(ESTIMATE_CAVEATS)
+        else:
+            result = overlap_intersecting(
+                conn,
+                run_id,
+                lat_min=bbox.lat_min,
+                lat_max=bbox.lat_max,
+                lon_min=bbox.lon_min,
+                lon_max=bbox.lon_max,
+            )
+            coverage = {
+                "cells_mapped": len(result.trawled),
+                "cells_unmapped": len(result.unmapped_effort),
+                "fishing_hours_mapped": result.trawled_fishing_hours,
+                "fishing_hours_unmapped": result.unmapped_fishing_hours,
+            }
+            caveats = list(area_estimate_caveats(cells_mapped=len(result.trawled)))
         disturbed = disturbed_from_cells(result.trawled, profiles)
         region = estimate_region_co2(disturbed, PUBLISHED_PRESETS)
 
-        return Response(
-            {
-                "run_id": run.id,
-                "effort_year": run.effort_year,
-                "effort_layer_label": run.effort_layer_label,
-                "effort_coverage": {
-                    "cells_mapped": run.cells_mapped,
-                    "cells_unmapped": run.cells_unmapped,
-                    "fishing_hours_mapped": run.fishing_hours_mapped,
-                    "fishing_hours_unmapped": run.fishing_hours_unmapped,
+        payload = {
+            "run_id": run.id,
+            "effort_year": run.effort_year,
+            "effort_layer_label": run.effort_layer_label,
+            "effort_coverage": coverage,
+            "disturbed_carbon": {
+                "mean_kg": disturbed.mean_kg,
+                "uncertainty_kg": disturbed.uncertainty_kg,
+            },
+            "gear_profiles": [asdict(profile) for _, profile in sorted(profiles.items())],
+            "estimates": [
+                {
+                    "preset": asdict(entry.preset),
+                    "aqueous_co2": _co2_payload(entry.aqueous),
+                    "atmospheric_co2": _co2_payload(entry.atmospheric),
+                    "anchors": [
+                        _anchor_payload(counted) for counted in anchor_counts(entry.aqueous)
+                    ],
+                }
+                for entry in region.per_preset
+            ],
+            "range": {
+                "low": {
+                    "preset_key": region.low.preset.key,
+                    "aqueous_co2": _co2_payload(region.low.aqueous),
                 },
-                "disturbed_carbon": {
-                    "mean_kg": disturbed.mean_kg,
-                    "uncertainty_kg": disturbed.uncertainty_kg,
+                "high": {
+                    "preset_key": region.high.preset.key,
+                    "aqueous_co2": _co2_payload(region.high.aqueous),
                 },
-                "gear_profiles": [asdict(profile) for _, profile in sorted(profiles.items())],
-                "estimates": [
-                    {
-                        "preset": asdict(entry.preset),
-                        "aqueous_co2": _co2_payload(entry.aqueous),
-                        "atmospheric_co2": _co2_payload(entry.atmospheric),
-                        "anchors": [
-                            _anchor_payload(counted) for counted in anchor_counts(entry.aqueous)
-                        ],
-                    }
-                    for entry in region.per_preset
-                ],
-                "range": {
-                    "low": {
-                        "preset_key": region.low.preset.key,
-                        "aqueous_co2": _co2_payload(region.low.aqueous),
-                    },
-                    "high": {
-                        "preset_key": region.high.preset.key,
-                        "aqueous_co2": _co2_payload(region.high.aqueous),
-                    },
+            },
+            "caveats": caveats,
+        }
+        if bbox is not None:
+            payload["area"] = {
+                "bbox": {
+                    "lon_min": bbox.lon_min,
+                    "lat_min": bbox.lat_min,
+                    "lon_max": bbox.lon_max,
+                    "lat_max": bbox.lat_max,
                 },
-                "caveats": list(ESTIMATE_CAVEATS),
+                **coverage,
             }
-        )
+        return Response(payload)
 
 
 class RunTilesView(APIView):

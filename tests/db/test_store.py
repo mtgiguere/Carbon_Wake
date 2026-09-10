@@ -277,3 +277,34 @@ def test_a_real_years_overlap_stores_and_summarizes_correctly(conn):
     assert math.isclose(mapped_hours, 139.7554, rel_tol=1e-9)
     assert math.isclose(unmapped_hours, 168.4296, rel_tol=1e-9)
     assert load_overlap(conn, run_id) == result
+
+
+def test_the_overlap_intersecting_a_bbox_carries_both_sides(conn):
+    """IDEAS.md #1: an area estimate needs the mapped cells AND the unmapped
+    effort inside the box (unmapped hours are excluded from the estimate but
+    must be disclosed). The far dredge-only cell falls outside this box."""
+    from carbon_atlas.db.store import overlap_intersecting
+
+    run_id = _store(conn)
+
+    inside = overlap_intersecting(
+        conn, run_id, lat_min=53.88, lat_max=53.92, lon_min=7.40, lon_max=7.70
+    )
+
+    # Both mapped cells (53.90/7.64 and 53.91/7.60) intersect the box; the
+    # unmapped cell (53.66, 7.48) is outside it.
+    assert [t.cell for t in inside.trawled] == [
+        GridCell(lat_index=5390, lon_index=764),
+        GridCell(lat_index=5391, lon_index=760),
+    ]
+    assert inside.unmapped_effort == {}
+    # Widen south to catch the unmapped cell too.
+    wider = overlap_intersecting(
+        conn, run_id, lat_min=53.60, lat_max=53.92, lon_min=7.40, lon_max=7.70
+    )
+    assert set(wider.unmapped_effort) == {GridCell(lat_index=5366, lon_index=748)}
+    assert wider.unmapped_effort[GridCell(lat_index=5366, lon_index=748)] == {"trawlers": 7.25}
+    assert len(wider.trawled) == 2
+
+    with pytest.raises(KeyError, match="31337"):
+        overlap_intersecting(conn, 31337, lat_min=0, lat_max=1, lon_min=0, lon_max=1)

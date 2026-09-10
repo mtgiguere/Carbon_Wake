@@ -53,8 +53,10 @@ wind farms (EMODnet, CC-BY 4.0) as reference zones, with the trawl-density
 contrast inside vs around them measured per country (ADR-0018) — near-total
 where fishing is excluded (BE/DE/DK/NL ratios 0.01–0.13 in 2024), barely
 present in UK farms where it often is not (0.81).
-Next: finish the backfill (2017, 2019–2023), then "draw your own area"
-(`docs/IDEAS.md` #1).
+Visitors can now draw their own box and get that area's cited range, with the
+displacement caveat and the cell count it rests on (IDEAS #1). Next: finish
+the backfill (2017, 2020–2023), then the data-ops CLI's first real backfill
+run and the VM.
 
 ## Getting started (dev)
 
