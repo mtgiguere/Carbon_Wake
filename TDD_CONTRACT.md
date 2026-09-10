@@ -489,6 +489,15 @@ A scoped audit of the scoring + validation core (2026-07) bore this out:
 > `coverage < 6`, which breaks `pytest-cov`. Run it in an isolated env, or drop to
 > `coverage 5.x` for the audit window and restore `coverage 7` (+ confirm the
 > suite) afterward. Do **not** add it to the project's dependencies.
+>
+> **Carbon_Wake's first audit (2026-09-10, ten pure-core modules, 738 mutants):**
+> the record with per-module numbers, the real gaps closed, and the equivalent
+> classes is in `docs/RIGOR.md` ("Mutation audit"). Tooling additions found
+> then: `mutatest` also needs `setuptools` on Py3.12, the `random.sample`
+> fix is two lines in `mutatest/run.py` (wrap the sets in `list()`), and —
+> the process lesson — **do not edit a test suite the audit is currently
+> reading**: a concurrent edit failed one module's clean baseline and its run
+> had to be repeated.
 
 ### The meta-lesson, restated
 

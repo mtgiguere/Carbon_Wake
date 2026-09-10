@@ -187,7 +187,7 @@ def test_no_cells_is_the_honest_zero():
 
 
 def test_a_year_without_profiles_fails_loudly_naming_it():
-    with pytest.raises(KeyError, match="2031"):
+    with pytest.raises(KeyError, match="no gear profiles for year 2031"):
         cumulative_footprint([_history({2031: 1.0})], _PROFILES)
 
 
@@ -195,7 +195,9 @@ def test_a_gear_without_a_profile_fails_loudly_naming_it():
     history = CellEffortHistory(
         cell=_CELL, mapped=True, hours_by_year={2012: {"beam_trawl_from_the_future": 1.0}}
     )
-    with pytest.raises(KeyError, match="beam_trawl_from_the_future"):
+    with pytest.raises(
+        KeyError, match="no gear profile for 'beam_trawl_from_the_future' in year 2012"
+    ):
         cumulative_footprint([history], _PROFILES)
 
 

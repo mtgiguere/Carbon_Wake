@@ -167,3 +167,20 @@ def test_an_inverted_box_is_rejected_at_construction():
         BoundingBox(lat_min=54.0, lat_max=53.0, lon_min=7.0, lon_max=8.0)
     with pytest.raises(ValueError):
         BoundingBox(lat_min=53.0, lat_max=54.0, lon_min=8.0, lon_max=7.0)
+
+
+def test_a_degenerate_box_with_equal_bounds_is_accepted():
+    """Mutation audit 2026-09-10: the inversion check is strict (`>`), so a box
+    collapsed to a line or a point is legal — bounds are inclusive and a
+    single-latitude scope is a real (if odd) request, not an inversion."""
+    box = BoundingBox(lat_min=54.0, lat_max=54.0, lon_min=7.0, lon_max=7.0)
+    assert box.lat_min == box.lat_max and box.lon_min == box.lon_max
+
+
+def test_an_out_of_world_corner_names_the_valid_range():
+    """The refusal tells the user the range it enforces — pinned so a wrong
+    limit in the message cannot drift from the limit in the check."""
+    with pytest.raises(ValueError, match=r"valid range is \[-90\.0, 89\.99\]"):
+        cell_from_lower_left(90.0, 0.0)
+    with pytest.raises(ValueError, match=r"valid range is \[-180\.0, 179\.99\]"):
+        cell_from_lower_left(0.0, 180.0)

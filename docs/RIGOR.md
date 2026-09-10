@@ -90,6 +90,67 @@ SQL moment-sum path is property-tested to equal the per-cell model *exactly*,
 and CO2 uncertainty flows through the same reactivity-core functions as the
 mean, so the pair cannot drift apart.
 
+## Mutation audit — 2026-09-10 (the project's first)
+
+TDD_CONTRACT.md's rule: run a scoped mutation audit on correctness-critical
+pure code periodically, read every survivor, kill the real ones with a test,
+and satisfy yourself the rest are equivalent. Tool: `mutatest` 3.1.0, full
+mode, every location, fixed seed, each module checked against the unit suites
+that exercise it (~1–8 min per module). Ten pure-core modules, 738 mutants.
+
+| module | pass 1 detected / survived | after new tests | survivors left, all equivalent |
+|---|---|---|---|
+| reactivity/presets | 96 / 21 | 105 / 12 → 10 | `frozen=True` ×3, `-> None` ×1 (defaults pinned last) |
+| disturbance | 120 / 10 | 122 / 8 | `frozen` ×2, annotations ×2 |
+| estimates | 17 / 8 | — | `frozen` ×3, annotation ×1 |
+| footprint | 85 / 14 | 87 / 12 | `frozen` ×4, annotations ×2 |
+| anchors | 15 / 6 | — | `frozen` ×2, annotation ×1 |
+| zones | 85 / 12 | 89 / 8 → 7 | `frozen` ×2, string `==` on geometry type ×2, `== 0.0`→`<=` on a non-negative density |
+| effort/grid | 106 / 19 | 126 / 5 | `frozen`, annotation, `>`→`>=` at a float snap tolerance, error-message arithmetic |
+| effort/aggregate | 16 / 4 | — | `frozen` ×1, annotation ×1 |
+| carbon/density | 8 / 4 | — | `frozen` ×1, annotation ×1 |
+| overlap | 9 / 4 | — | `frozen` ×2 |
+
+**Real gaps found (each now a test, each named "Mutation audit 2026-09-10"
+in its docstring):**
+
+1. **Every preset's honesty flags were unpinned.** Flipping any preset's
+   `atmospheric_fraction` from None to a number — fabricating an outgassing
+   figure the source never gave — or its `accounts_for_additionality` (the
+   crux of the dispute, printed on the panel) survived the whole suite. The
+   catalog's flags are now asserted per preset from SCIENCE_BASIS, and a
+   minimal preset's defaults (unknown atmospheric, no additionality credit,
+   quoted not derived) are pinned as a contract.
+2. **Four "fails loudly" guards were deletable.** The uncovered-year guard
+   (disturbance), the year and gear guards (footprint), and the empty-range
+   guard (presets) each sat in front of a lookup that raises KeyError or
+   ValueError anyway; tests matched only the offending value, which the bare
+   exception also names. Each now pins the guard's own message.
+3. **Boundaries untested at the edge**, the TDD contract's field-drift class:
+   the 1 m penetration ceiling (exactly 1.0 m accepted, the first value past
+   it refused naming centimetres); the zone-region bounds (a vertex exactly
+   on the corner counts as inside — and the first version of that test
+   itself leaked through one mutant via a vertex on the latitude edge, fixed
+   on the verification pass); negative areas in the zone contrast; a
+   degenerate bounding box with equal bounds.
+4. **Message arithmetic**: the grid's "valid range is [−90.0, 89.99]" text
+   was never checked; it is now, so the limit in the message cannot drift
+   from the limit in the check.
+
+**Equivalent, left alive on purpose:** `frozen=True` (immutability is a
+design rule, so it gets one invariant test across the core dataclasses rather
+than per-module scoring); `-> None` annotations; string equality on geometry
+type names (no realistic input distinguishes `==` from `>=` there); a `<=`
+on a density that cannot be negative; a `>` vs `>=` at a floating-point snap
+tolerance no test can hit exactly.
+
+**Process lessons, both now in the contract's tooling note:** `mutatest`
+needs `setuptools` and a two-line `random.sample(list(...))` fix on Python
+3.12, and downgrades `coverage` to 5.x (restored to 7 afterwards, suite
+re-confirmed). And **never edit a suite the audit is currently reading** — a
+concurrent test edit failed one module's clean baseline and its run had to
+be repeated.
+
 ## The incident log (failures, honestly)
 
 | When | What happened | Root cause | Fix |
@@ -103,6 +164,10 @@ mean, so the pair cannot drift apart.
 | 2026-08-27 | **The white map**: page shell rendered, map stuck at "loading…" for the owner | bare runserver serves no `/static/` with DEBUG=False → maplibre-gl.js 404'd. The page test had checked assets EXIST via finders, not that they are SERVED over HTTP — Blind spot A's self-referential pattern in infrastructure clothing. Three static-serving paths (test client / live_server / runserver) each differed from the user's in exactly the failing dimension | WhiteNoise unifies all serving paths; the new test requests assets over real HTTP and was RED exactly the way the browser was |
 | 2026-08-27 | Exit-code masking, SECOND occurrence — a red suite slipped a commit through `pytest \| tail` | repeated a lesson already in this log | never pipe the gate; explicit `rc=$?` before any commit. A documented lesson repeated is worse than a new mistake |
 | 2026-08-27 | Three essential fixes pushed to a branch whose PR was already merged — no CI ran, main silently carried the white-map bug for fresh clones | never checked PR state before pushing follow-ups | PR #19 opened for the stranded commits; rule: after any merge, verify PR state — post-merge fixes get a fresh branch and their own PR immediately |
+| 2026-09-08/10 | **The backfill that could not verify itself**: byte-count checks passed corrupt zips (byte-range resumes stitched Zenodo error pages into archives; two years' ETLs failed on bad members); the MD5 list then fetched carried Windows carriage returns, so every checksum "failed" for over an hour and a valid 2016 file was declared bad; curl saved 504 error bodies as downloads | the download/ETL driver was an untested scratchpad shell script — the only code in the project outside the TDD discipline, and the only code that failed three different ways | MD5 verification, fresh re-download on mismatch; rule 7 below: data-ops code is product code |
+| 2026-09-08 | An orphaned ETL process hung 22 hours; a "killed" loop survived and ran a duplicate; a process sweep killed the harness's own log monitor; a spike query without a bounding-box prefilter ran a full day while the machine slept | long-running work launched casually (tool timeouts, broad kill filters, unbounded geography joins) | detached processes with recorded PIDs; targeted kills; `&&` bbox prefilter before any geography operation over the cell table |
+| 2026-09-10 | Spike figures for the wind-farm contrast were written into the ADR, SCIENCE_BASIS, README, and IDEAS an hour before the product computed its own — which differed (UK ratio 0.48 → 0.81) once unknown-year and under-construction farms were excluded | numbers entered the record from an exploratory query, not from the product's stored computation | all four documents corrected the same day, both figures kept with the reason they differ; rule 8 below |
+| 2026-09-08 | Playwright page tests could see each other's seeded runs and summaries — benign until a "no summary computed" test met the previous test's summary | Django's transactional flush covers Django-managed tables only; the ETL-owned raw tables were never emptied between tests (latent since the first page test) | `tests/web/conftest.py` empties every ETL-owned table before each transactional page test — rule 1 again: the boundary tests must own their own state |
 
 ## Current scientific status — read this before citing any number
 
@@ -152,6 +217,16 @@ so far, each traceable to a row above:
    pixel test gets a RED demo before it counts as protection.
 6. **After any merge, verify PR state before pushing follow-ups**
    (2026-08-27); post-merge fixes get a fresh branch and their own PR.
+7. **Data-ops code is product code** (2026-09-10). Anything that downloads,
+   verifies, or loads source data lives in the repo, under TDD, with
+   checksum verification against the publisher's manifest built in. No
+   scratchpad script for anything that runs longer than a minute or touches
+   the working database. The backfill driver is the first thing this rule
+   applies to (see the 2026-09-08/10 incident).
+8. **Numbers enter the record only from the product's own stored
+   computation** (2026-09-10). A spike's figures may appear in a spike note,
+   labeled as such; an ADR, README, or SCIENCE_BASIS section quotes only what
+   the product computed and stored, with the run/summary it came from.
 
 ## What's deliberately NOT here
 

@@ -138,7 +138,7 @@ def test_estimate_range_rejects_empty_presets():
     """A range over zero presets has no meaning. Raise — do not return a degenerate
     (0, 0) that a caller could mistake for a real, confident zero. This is the
     empty-collection edge that TDD_CONTRACT.md Bug #2 was about."""
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="at least one preset"):
         estimate_range(disturbed_carbon_mass=1000.0, presets=[])
 
 
@@ -344,3 +344,35 @@ def test_catalog_range_spans_the_published_dispute():
     # Sala 2021 and both Atwood 2024 presets tie for the aqueous high (same
     # disturbed-carbon flux), so pin the value rather than an arbitrary tiebreak.
     assert r.high_preset.remineralization_fraction == 0.297
+
+
+def test_each_presets_honesty_flags_are_pinned_to_the_literature():
+    """Mutation audit 2026-09-10: flipping any preset's ``atmospheric_fraction``
+    (None -> a number fabricates an outgassing figure the source never gave)
+    or ``accounts_for_additionality`` (the crux of the Sala/Hiddink dispute,
+    printed on the panel) survived the suite. Pin them per preset, from
+    SCIENCE_BASIS: Sala 2021 called the atmospheric fraction "unknown";
+    Atwood 2024 quantified 55-60 %; Hiddink 2023 quantified none and is the
+    only lineage crediting natural background remineralization."""
+    flags = {
+        p.key: (p.atmospheric_fraction, p.accounts_for_additionality) for p in PUBLISHED_PRESETS
+    }
+    assert flags == {
+        "sala_2021": (None, False),
+        "atwood_2024_low": (0.55, False),
+        "atwood_2024_high": (0.60, False),
+        "hiddink_2023_high": (None, True),
+        "hiddink_2023_low": (None, True),
+    }
+
+
+def test_a_minimal_preset_defaults_to_the_honest_position():
+    """The defaults are a contract, not a convenience: a preset that says
+    nothing about outgassing has an UNKNOWN atmospheric fraction (None, never
+    a number), claims no additionality credit, and is quoted, not derived."""
+    preset = ReactivityPreset(
+        key="minimal", label="minimal", remineralization_fraction=0.1, citation="test"
+    )
+    assert preset.atmospheric_fraction is None
+    assert preset.accounts_for_additionality is False
+    assert preset.derivation is None
