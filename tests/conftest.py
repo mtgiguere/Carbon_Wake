@@ -48,6 +48,16 @@ def db_conn():
     conn.close()
 
 
+@pytest.fixture(scope="session")
+def test_dsn():
+    """The test database's DSN, for code that opens its own connection (the
+    CLI). Same server, same isolated database as ``db_conn``."""
+    from psycopg import conninfo
+
+    working_dsn = os.environ.get("CARBON_ATLAS_DB_URL", _DEFAULT_DSN)
+    return conninfo.make_conninfo(working_dsn, dbname=_TEST_DBNAME)
+
+
 @pytest.fixture
 def conn(db_conn):
     """A clean-slate connection: every ETL-owned table emptied before each test."""
