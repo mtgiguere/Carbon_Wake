@@ -71,3 +71,41 @@ CREATE TABLE IF NOT EXISTS footprint_summary (
     CHECK (mapped_lower_m2 <= mapped_poisson_m2 AND mapped_poisson_m2 <= mapped_upper_m2),
     CHECK (all_lower_m2 <= all_poisson_m2 AND all_poisson_m2 <= all_upper_m2)
 );
+
+-- Reference zones (ADR-0018): offshore wind farms as published by EMODnet, a
+-- replaceable snapshot per source. The 5 km comparison ring is precomputed
+-- (buffer minus every farm), so measuring a run against the zones is cheap.
+-- A commissioning year may be NULL: unknown is recorded, never guessed.
+CREATE TABLE IF NOT EXISTS reference_zone (
+    id                bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    source            text NOT NULL,
+    name              text NOT NULL,
+    country           text,
+    status            text NOT NULL,
+    commissioned_year integer CHECK (commissioned_year IS NULL OR commissioned_year BETWEEN 1990 AND 2100),
+    power_mw          double precision CHECK (power_mw IS NULL OR power_mw >= 0),
+    turbines          integer CHECK (turbines IS NULL OR turbines >= 0),
+    area_km2          double precision CHECK (area_km2 IS NULL OR area_km2 >= 0),
+    geom              geometry(MultiPolygon, 4326) NOT NULL,
+    ring_geom         geometry(MultiPolygon, 4326) NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS reference_zone_geom_idx ON reference_zone USING gist (geom);
+CREATE INDEX IF NOT EXISTS reference_zone_ring_idx ON reference_zone USING gist (ring_geom);
+
+-- One run's measured inside-vs-ring contrast per country (ADR-0018), stored so
+-- the API never re-measures. Farms without a commissioning year are counted,
+-- not measured. Re-measuring a run replaces its rows.
+CREATE TABLE IF NOT EXISTS zone_contrast_summary (
+    run_id              bigint NOT NULL REFERENCES etl_run (id) ON DELETE CASCADE,
+    country             text NOT NULL,
+    cutoff_year         integer NOT NULL,
+    computed_at         timestamptz NOT NULL DEFAULT now(),
+    farms               integer NOT NULL CHECK (farms >= 0),
+    farms_without_year  integer NOT NULL CHECK (farms_without_year >= 0),
+    farm_km2            double precision NOT NULL CHECK (farm_km2 >= 0),
+    inside_hours        double precision NOT NULL CHECK (inside_hours >= 0),
+    ring_km2            double precision NOT NULL CHECK (ring_km2 >= 0),
+    ring_hours          double precision NOT NULL CHECK (ring_hours >= 0),
+    PRIMARY KEY (run_id, country)
+);

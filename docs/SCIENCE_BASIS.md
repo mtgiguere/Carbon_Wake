@@ -364,3 +364,81 @@ especially before 2017, and small vessels are missed), so the atlas's
 coverage figures should be read as what AIS SAW, not what the fleet did.
 The 2012→2013 tripling is the AIS coverage jump, not a fishing trend. These
 figures change as the backfill completes; the served summary names its years.
+
+## Reference zones: offshore wind farms (added 2026-09-10, ADR-0018)
+
+**Source [VERIFIED 2026-09-08].** EMODnet Human Activities, "Wind Farms
+(Polygons)" (CETMAR for EMODnet; annual update), WFS layer
+`emodnet:windfarmspoly` at https://ows.emodnet-humanactivities.eu/wfs,
+EPSG:4326, GeoJSON output; 600 polygons Europe-wide, 456 inside the Diesing
+envelope, of which 150 Production, 19 Construction, 57 Approved, 219 Planned,
+10 Dismantled, 1 Test site. License **CC-BY 4.0** (metadata record
+8201070b-4b0b-4d54-8910-abcea5dce57f, "otherConstraints"). Attributes: name,
+country, status, year (commissioning; **null for 44 of 160 producing farms,
+1,739 of 7,178 km² — 29 of them UK**), power_mw, n_turbines, area_sqkm,
+type_inst (Grounded/Floating).
+
+**Regulatory background [UNVERIFIED — general knowledge, to be sourced].**
+Belgium, the Netherlands, Germany, and Denmark close producing farms to
+bottom-contact fishing (safety zones / permit conditions); the UK generally
+does not, and co-location with fishing is common. This is why the contrast is
+read per country. A primary-source pass (national permit conditions) is owed
+before any per-country sentence hardens into a claim.
+
+**The measurement.** For a run with effort year Y: farms with a known
+commissioning year ≤ Y−1; inside = hours of the run's cells apportioned by
+the intersected fraction of each 0.01° cell to the farm polygon, divided by
+the FULL polygon area (PostGIS geography, ellipsoidal); ring = the same for
+the 5 km buffer minus every farm. Farms without a year are counted, not
+measured. Ratio = inside density / ring density; undefined when the ring saw
+no effort.
+
+**Spike verification (2026-09-08, 2024 run = run 2, farms commissioned ≤
+2023, rings NOT yet carved of neighbouring farms):**
+
+| Country | farm area km² | inside h/km² | 5 km ring h/km² | ratio |
+|---|---|---|---|---|
+| United Kingdom | 4,137 | 0.72 | 1.49 | 0.48 |
+| Netherlands | 1,049 | 0.08 | 0.69 | 0.11 |
+| Germany | 790 | 0.18 | 1.70 | 0.11 |
+| Denmark | 512 | 0.20 | 2.95 | 0.07 |
+| Belgium | 232 | 0.01 | 0.70 | 0.02 |
+| **All** | **6,731** | **0.49** | **1.51** | **0.33** |
+
+2012 control (run 1, farms ≤ 2011, 2,012 km²): all countries inside 0.60 vs
+ring 0.45 h/km² (ratio 1.33) — no deficit before the farms existed at scale
+(and 2012 AIS coverage is thin; the Dutch 2012 figure, 2.61 vs 2.21 on 400
+km², is small-sample noise or midwater effort, not evidence of trawling
+inside closed farms — unresolved).
+
+**Product measurement (first run 2026-09-10; producing farms only, unknown
+year excluded, rings carved of every farm; six runs, 8 s).** Two rules moved
+the figures away from the spike's: excluding the 41 unknown-year farms (29 of
+them UK) and excluding farms under construction (their "year" is a plan).
+
+| Run year (farms ≤ year−1) | farms measured | farm km² | inside h/km² | ring h/km² | ratio |
+|---|---|---|---|---|---|
+| 2012 (≤2011) | 29 | 330 | 0.29 | 0.75 | 0.39 |
+| 2013 (≤2012) | 34 | 658 | 0.65 | 2.89 | 0.22 |
+| 2014 (≤2013) | 40 | 845 | 0.20 | 2.84 | 0.07 |
+| 2015 (≤2014) | 45 | 996 | 0.17 | 2.65 | 0.06 |
+| 2016 (≤2015) | 57 | 1,384 | 0.07 | 2.63 | 0.03 |
+| 2024 (≤2023) | 106 | 5,049 | 0.64 | 1.54 | 0.41 |
+
+Per country, 2024: Belgium 11 farms / 177 km² ratio **0.01**; Germany 22 /
+626 km² **0.04**; Denmark 13 / 463 km² **0.07**; Netherlands 11 / 697 km²
+**0.13**; United Kingdom 47 / 3,076 km² **0.81** (inside 0.97 vs ring 1.19
+h/km²). The UK figure is the finding: its ratio was **0.02 in 2016** (27
+nearshore farms, 753 km²) and **0.81 in 2024**, after the very large
+offshore farms commissioned 2019–2023 (Hornsea, Moray, Triton Knoll, Dogger
+Bank lineage) entered the measured set — farms sited on heavily trawled
+grounds that permit fishing. Whether the inside effort is bottom-contact or
+midwater cannot be told from GFW's class (ADR-0009). The 2012 figure (0.39
+on 330 km²) is not a clean "before" control either: farms that existed by
+2011 were already closed areas in BE/NL/DE/DK. The spike's 2012 ratio of
+1.33 was an artifact of including unknown-year farms and is withdrawn.
+
+**What it is not.** Not a matched control (sites are chosen for wind and
+depth); not bottom-contact-only effort (ADR-0009); not a trend (AIS coverage
+grew); not a statement about safety zones or cable corridors (not in the
+polygons).

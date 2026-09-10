@@ -10,6 +10,8 @@ from carbon_atlas.api.views import (
     RunEstimateView,
     RunListView,
     RunTilesView,
+    RunZoneContrastView,
+    WindFarmZonesView,
 )
 
 urlpatterns = [
@@ -20,4 +22,6 @@ urlpatterns = [
     path("api/runs/<int:run_id>/estimate/", RunEstimateView.as_view()),
     path("api/runs/<int:run_id>/tiles/<int:z>/<int:x>/<int:y>.mvt", RunTilesView.as_view()),
     path("api/footprint/", FootprintView.as_view()),
+    path("api/zones/wind-farms/", WindFarmZonesView.as_view()),
+    path("api/runs/<int:run_id>/zone-contrast/", RunZoneContrastView.as_view()),
 ]

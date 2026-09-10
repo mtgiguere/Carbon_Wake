@@ -47,7 +47,7 @@ delivery mechanism layered around it.
                                     │ disturbed-carbon quantities
                     ┌───────────────┴─────────────────────────────┐
    SCIENCE CORE     │  reactivity · disturbance · estimates ·      │  ← unit + property tests
-                    │  footprint · anchors  (PURE)                 │     (the most-tested code)
+                    │  footprint · anchors · zones  (PURE)         │     (the most-tested code)
                     └─────────────────────────────────────────────┘
 ```
 
@@ -194,6 +194,13 @@ suites grow, the fast unit run is `pytest -m "not integration and not visual"`.
    `carbon_atlas.footprint` as a bracket (floor / union / ceiling); computed
    offline by `run_footprint_summary` over a server-side cursor, stored in
    `footprint_summary`, served at `/api/footprint/`, shown on the panel.
+6c. **Reference zones** (2026-09-10, ADR-0018): EMODnet wind-farm polygons
+   (CC-BY 4.0) loaded as a snapshot scoped to the carbon envelope, each with a
+   precomputed 5 km ring; every run measured offline against farms
+   commissioned before its year, per country (`carbon_atlas.zones` is the
+   pure parser + contrast arithmetic; PostGIS does the apportioning); served
+   as GeoJSON + `/api/runs/<id>/zone-contrast/`; a toggleable, pixel-tested
+   layer and a per-country line on the panel.
 7. **Docker Compose deployment** ← we are here. The production stack exists
    and was first-run VERIFIED locally end to end (image built, Caddy → 
    gunicorn → WhiteNoise → PostGIS, real data restored, map rendered):

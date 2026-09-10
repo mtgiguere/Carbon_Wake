@@ -48,8 +48,13 @@ estimate payload. See `docs/RIGOR.md` before citing any number.
 in; the 2013–2023 backfill is loading; the panel now anchors both ends of the
 range in everyday units (car-years, EPA factor) and carries the cumulative
 footprint — "fraction of the mapped seabed trawled at least once since 2012"
-as a bracket with both biases stated (ADR-0017). Next: finish the backfill,
-then the wind-farm reference-zone layer (`docs/IDEAS.md` #3).
+as a bracket with both biases stated (ADR-0017). **2026-09-10:** offshore
+wind farms (EMODnet, CC-BY 4.0) as reference zones, with the trawl-density
+contrast inside vs around them measured per country (ADR-0018) — near-total
+where fishing is excluded (BE/DE/DK/NL ratios 0.01–0.13 in 2024), barely
+present in UK farms where it often is not (0.81).
+Next: finish the backfill (2017, 2019–2023), then "draw your own area"
+(`docs/IDEAS.md` #1).
 
 ## Getting started (dev)
 

@@ -24,6 +24,7 @@ def _empty_etl_tables(request):
     connection.ensure_connection()
     apply_schema(connection.connection)
     connection.connection.execute(
-        "TRUNCATE etl_run RESTART IDENTITY CASCADE; TRUNCATE footprint_summary RESTART IDENTITY"
+        "TRUNCATE etl_run RESTART IDENTITY CASCADE; TRUNCATE footprint_summary RESTART IDENTITY;"
+        " TRUNCATE reference_zone RESTART IDENTITY"
     )
     yield
