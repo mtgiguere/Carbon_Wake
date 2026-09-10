@@ -90,6 +90,67 @@ SQL moment-sum path is property-tested to equal the per-cell model *exactly*,
 and CO2 uncertainty flows through the same reactivity-core functions as the
 mean, so the pair cannot drift apart.
 
+## Mutation audit — 2026-09-10 (the project's first)
+
+TDD_CONTRACT.md's rule: run a scoped mutation audit on correctness-critical
+pure code periodically, read every survivor, kill the real ones with a test,
+and satisfy yourself the rest are equivalent. Tool: `mutatest` 3.1.0, full
+mode, every location, fixed seed, each module checked against the unit suites
+that exercise it (~1–8 min per module). Ten pure-core modules, 738 mutants.
+
+| module | pass 1 detected / survived | after new tests | survivors left, all equivalent |
+|---|---|---|---|
+| reactivity/presets | 96 / 21 | 105 / 12 → 10 | `frozen=True` ×3, `-> None` ×1 (defaults pinned last) |
+| disturbance | 120 / 10 | 122 / 8 | `frozen` ×2, annotations ×2 |
+| estimates | 17 / 8 | — | `frozen` ×3, annotation ×1 |
+| footprint | 85 / 14 | 87 / 12 | `frozen` ×4, annotations ×2 |
+| anchors | 15 / 6 | — | `frozen` ×2, annotation ×1 |
+| zones | 85 / 12 | 89 / 8 → 7 | `frozen` ×2, string `==` on geometry type ×2, `== 0.0`→`<=` on a non-negative density |
+| effort/grid | 106 / 19 | 126 / 5 | `frozen`, annotation, `>`→`>=` at a float snap tolerance, error-message arithmetic |
+| effort/aggregate | 16 / 4 | — | `frozen` ×1, annotation ×1 |
+| carbon/density | 8 / 4 | — | `frozen` ×1, annotation ×1 |
+| overlap | 9 / 4 | — | `frozen` ×2 |
+
+**Real gaps found (each now a test, each named "Mutation audit 2026-09-10"
+in its docstring):**
+
+1. **Every preset's honesty flags were unpinned.** Flipping any preset's
+   `atmospheric_fraction` from None to a number — fabricating an outgassing
+   figure the source never gave — or its `accounts_for_additionality` (the
+   crux of the dispute, printed on the panel) survived the whole suite. The
+   catalog's flags are now asserted per preset from SCIENCE_BASIS, and a
+   minimal preset's defaults (unknown atmospheric, no additionality credit,
+   quoted not derived) are pinned as a contract.
+2. **Four "fails loudly" guards were deletable.** The uncovered-year guard
+   (disturbance), the year and gear guards (footprint), and the empty-range
+   guard (presets) each sat in front of a lookup that raises KeyError or
+   ValueError anyway; tests matched only the offending value, which the bare
+   exception also names. Each now pins the guard's own message.
+3. **Boundaries untested at the edge**, the TDD contract's field-drift class:
+   the 1 m penetration ceiling (exactly 1.0 m accepted, the first value past
+   it refused naming centimetres); the zone-region bounds (a vertex exactly
+   on the corner counts as inside — and the first version of that test
+   itself leaked through one mutant via a vertex on the latitude edge, fixed
+   on the verification pass); negative areas in the zone contrast; a
+   degenerate bounding box with equal bounds.
+4. **Message arithmetic**: the grid's "valid range is [−90.0, 89.99]" text
+   was never checked; it is now, so the limit in the message cannot drift
+   from the limit in the check.
+
+**Equivalent, left alive on purpose:** `frozen=True` (immutability is a
+design rule, so it gets one invariant test across the core dataclasses rather
+than per-module scoring); `-> None` annotations; string equality on geometry
+type names (no realistic input distinguishes `==` from `>=` there); a `<=`
+on a density that cannot be negative; a `>` vs `>=` at a floating-point snap
+tolerance no test can hit exactly.
+
+**Process lessons, both now in the contract's tooling note:** `mutatest`
+needs `setuptools` and a two-line `random.sample(list(...))` fix on Python
+3.12, and downgrades `coverage` to 5.x (restored to 7 afterwards, suite
+re-confirmed). And **never edit a suite the audit is currently reading** — a
+concurrent test edit failed one module's clean baseline and its run had to
+be repeated.
+
 ## The incident log (failures, honestly)
 
 | When | What happened | Root cause | Fix |

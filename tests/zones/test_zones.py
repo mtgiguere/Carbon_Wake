@@ -110,6 +110,23 @@ def test_farms_outside_the_region_are_dropped_and_touching_ones_kept():
     assert [z.name for z in zones] == ["edge"]
 
 
+def test_a_vertex_exactly_on_the_region_corner_counts_as_inside():
+    """Mutation audit 2026-09-10: the bounds are inclusive, and nothing had
+    tested equality. A farm whose only in-region vertex sits exactly on the
+    south-west corner is kept."""
+    corner = [  # every other vertex is outside on BOTH axes
+        [_NORTH_SEA.lon_min, _NORTH_SEA.lat_min],
+        [_NORTH_SEA.lon_min - 0.5, _NORTH_SEA.lat_min - 0.5],
+        [_NORTH_SEA.lon_min - 0.3, _NORTH_SEA.lat_min - 0.3],
+        [_NORTH_SEA.lon_min, _NORTH_SEA.lat_min],
+    ]
+    collection = {"features": [_feature("corner", "Production", 2015, corner, country="Ireland")]}
+
+    zones = parse_emodnet_windfarms(collection, region=_NORTH_SEA)
+
+    assert [z.name for z in zones] == ["corner"]
+
+
 def test_a_feature_without_geometry_or_status_is_refused_loudly():
     no_geom = _feature("ghost", "Production", 2015, _SQUARE)
     no_geom["geometry"] = None
@@ -189,7 +206,10 @@ def test_a_quiet_ring_gives_no_ratio_rather_than_infinity():
     "kwargs",
     [
         dict(farm_km2=0.0, inside_hours=0.0, ring_km2=1.0, ring_hours=0.0),
+        dict(farm_km2=-1.0, inside_hours=0.0, ring_km2=1.0, ring_hours=0.0),
+        dict(farm_km2=1.0, inside_hours=0.0, ring_km2=-2.0, ring_hours=0.0),
         dict(farm_km2=1.0, inside_hours=-1.0, ring_km2=1.0, ring_hours=0.0),
+        dict(farm_km2=1.0, inside_hours=0.0, ring_km2=1.0, ring_hours=-1.0),
         dict(farm_km2=1.0, inside_hours=0.0, ring_km2=float("nan"), ring_hours=0.0),
     ],
 )

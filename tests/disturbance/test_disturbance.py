@@ -255,7 +255,17 @@ def test_every_gfw_data_year_has_profiles():
 def test_a_year_outside_the_data_fails_loudly():
     """No silent fallback to some other year's fleet: an uncovered year
     raises, naming itself and the covered span."""
-    with pytest.raises(KeyError, match="2011"):
+    with pytest.raises(KeyError, match=r"no gear profiles for year 2011.*2012-2024"):
         gear_profiles_for_year(2011)
-    with pytest.raises(KeyError, match="2025"):
+    with pytest.raises(KeyError, match=r"no gear profiles for year 2025.*2012-2024"):
         gear_profiles_for_year(2025)
+
+
+def test_the_penetration_ceiling_is_inclusive_at_exactly_one_metre():
+    """Mutation audit 2026-09-10: `>` vs `>=` at the 1 m ceiling was untested.
+    The ceiling exists to catch centimetres typed as metres; exactly 1.0 m is
+    implausible but not a unit error, so it is accepted, and the first value
+    past it is refused naming the likely mistake."""
+    assert _profile(depth_m=1.0).penetration_depth_m == 1.0
+    with pytest.raises(ValueError, match="centimeters"):
+        _profile(depth_m=1.0 + 1e-9)
