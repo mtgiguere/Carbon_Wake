@@ -365,6 +365,16 @@ coverage figures should be read as what AIS SAW, not what the fleet did.
 The 2012→2013 tripling is the AIS coverage jump, not a fishing trend. These
 figures change as the backfill completes; the served summary names its years.
 
+**Complete series (2026-09-14; all thirteen years 2012–2024 loaded, 1,670,306
+cells, mapped seabed 531,385 km²; footprint summary 4):** floor **52.9 %**,
+Poisson union **61.7 %**, ceiling **65.2 %** of the mapped seabed swept at
+least once. Per year: 2012 5.3 %, 2013 16.7, 2014 16.6, 2015 18.0, 2016 18.4,
+2017 18.9, 2018 22.4, 2019 22.9, 2020 22.8, 2021 23.3, 2022 26.0, 2023 25.2,
+2024 23.6 %. The all-effort union (mapped + unmapped cells, area only) is
+670,221 km². The per-year figures plateau near 23–26 % from 2018 — still well
+under Amoroso's VMS-based 42.2 %/yr, consistent with AIS seeing roughly half
+the effort VMS did. These are the product's stored figures (RIGOR rule 8).
+
 ## Reference zones: offshore wind farms (added 2026-09-10, ADR-0018)
 
 **Source [VERIFIED 2026-09-08].** EMODnet Human Activities, "Wind Farms
@@ -428,14 +438,22 @@ them UK) and excluding farms under construction (their "year" is a plan).
 Per country, 2024: Belgium 11 farms / 177 km² ratio **0.01**; Germany 22 /
 626 km² **0.04**; Denmark 13 / 463 km² **0.07**; Netherlands 11 / 697 km²
 **0.13**; United Kingdom 47 / 3,076 km² **0.81** (inside 0.97 vs ring 1.19
-h/km²). The UK figure is the finding: its ratio was **0.02 in 2016** (27
-nearshore farms, 753 km²) and **0.81 in 2024**, after the very large
-offshore farms commissioned 2019–2023 (Hornsea, Moray, Triton Knoll, Dogger
-Bank lineage) entered the measured set — farms sited on heavily trawled
-grounds that permit fishing. Whether the inside effort is bottom-contact or
-midwater cannot be told from GFW's class (ADR-0009). The 2012 figure (0.39
-on 330 km²) is not a clean "before" control either: farms that existed by
-2011 were already closed areas in BE/NL/DE/DK. The spike's 2012 ratio of
+h/km²). The UK figure needs care. The **complete series (2026-09-14)** of the
+United Kingdom's inside/ring ratio, producing farms commissioned by the year
+before each run, is: 2012 0.44 · 2013 0.28 · 2014 0.07 · 2015 0.12 · 2016
+0.02 · 2017 0.13 · 2018 0.03 · 2019 0.23 · 2020 0.12 · 2021 0.48 · 2022 0.26 ·
+2023 0.10 · **2024 0.81**. The very large 2019–2023 farms are already in the
+2022 and 2023 sets, whose ratios are 0.26 and 0.10 — so 2024's 0.81 is a
+**single-year outlier, not a trend**, and the earlier reading of it ("the
+giant farms entered and fishing continued inside them") is withdrawn. The
+cause is unresolved; candidates are the 2024 GFW product itself, vessel
+traffic around farms commissioned in 2023 (construction, service, and survey
+vessels are not "trawlers", but AIS classification is imperfect), and
+midwater effort. Until it is resolved, the panel shows every year's figure
+and the atlas narrates none of them as a trend. All other countries are
+stable and low across the series (Belgium ≤ 0.03 every year; Germany ≤ 0.06
+from 2015; Denmark ≤ 0.07 bar a 0.20 in 2022; the Netherlands 0.03–0.24).
+The spike's 2012 ratio of
 1.33 was an artifact of including unknown-year farms and is withdrawn.
 
 **What it is not.** Not a matched control (sites are chosen for wind and

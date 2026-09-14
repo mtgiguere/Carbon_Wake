@@ -50,13 +50,15 @@ range in everyday units (car-years, EPA factor) and carries the cumulative
 footprint — "fraction of the mapped seabed trawled at least once since 2012"
 as a bracket with both biases stated (ADR-0017). **2026-09-10:** offshore
 wind farms (EMODnet, CC-BY 4.0) as reference zones, with the trawl-density
-contrast inside vs around them measured per country (ADR-0018) — near-total
-where fishing is excluded (BE/DE/DK/NL ratios 0.01–0.13 in 2024), barely
-present in UK farms where it often is not (0.81).
+contrast inside vs around them measured per country and per year (ADR-0018)
+— near-total where fishing is excluded (BE/DE/DK/NL ratios 0.01–0.13 in
+2024); the UK's 2024 ratio of 0.81 is a single-year outlier against 0.10–0.48
+in 2021–2023, cause unresolved.
 Visitors can now draw their own box and get that area's cited range, with the
-displacement caveat and the cell count it rests on (IDEAS #1). Next: finish
-the backfill (2017, 2020–2023), then the data-ops CLI's first real backfill
-run and the VM.
+displacement caveat and the cell count it rests on (IDEAS #1). **2026-09-14:**
+all thirteen years 2012–2024 are loaded (the last three via
+`python -m carbon_atlas backfill`); the cumulative footprint reads floor
+52.9 %, union 61.7 %, ceiling 65.2 % of the mapped seabed. Next: the VM.
 
 ## Getting started (dev)
 
