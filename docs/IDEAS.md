@@ -53,10 +53,11 @@ once since 2012?"* — Amoroso-style, using machinery we already have
 
 > Shipped as ADR-0018, with the verification this note demanded: the
 > exclusion is real but NATIONAL (2024 inside/ring ratio 0.01 BE, 0.04 DE,
-> 0.07 DK, 0.13 NL, 0.81 UK where fishing is often permitted; 0.41 overall;
-> the UK was 0.02 in 2016 before its giant 2019–2023 farms). So it ships as a
-> per-country measured contrast with caveats, not as a blanket sanctuary
-> story. Original note:
+> 0.07 DK, 0.13 NL, 0.81 UK where fishing is often permitted; 0.41 overall).
+> With the full 2012–2024 series (2026-09-14) the UK's 2024 figure is a
+> single-year outlier (2021–2023: 0.48 / 0.26 / 0.10), cause unresolved. So
+> it ships as a per-country, per-year measured contrast with caveats, never
+> as a story. Original note:
 
 Offshore wind farms are de facto trawl-exclusion zones; EMODnet publishes
 their footprints openly. Overlaid on 2024 effort they should appear as

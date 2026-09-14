@@ -572,3 +572,10 @@ distance to port) is future work and is said so on the panel. (d) Areas in
 this feature are PostGIS ellipsoidal (geography); the footprint's cell areas
 are spherical — each metric is internally consistent, and they are never
 mixed (they differ by ~0.4 %).
+
+**Amendment 2026-09-14 (complete series).** With all thirteen years loaded,
+the UK ratio reads 0.48 / 0.26 / 0.10 for 2021–2023 and 0.81 for 2024: the
+"giant farms entered the set" reading in the context above was an
+interpretation of a single year and is withdrawn; 2024 is an outlier with an
+unresolved cause (SCIENCE_BASIS "Reference zones"). The decision stands —
+per-country, per-year, never one number — and this is why.
