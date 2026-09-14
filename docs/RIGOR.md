@@ -168,6 +168,7 @@ be repeated.
 | 2026-09-08 | An orphaned ETL process hung 22 hours; a "killed" loop survived and ran a duplicate; a process sweep killed the harness's own log monitor; a spike query without a bounding-box prefilter ran a full day while the machine slept | long-running work launched casually (tool timeouts, broad kill filters, unbounded geography joins) | detached processes with recorded PIDs; targeted kills; `&&` bbox prefilter before any geography operation over the cell table |
 | 2026-09-10 | Spike figures for the wind-farm contrast were written into the ADR, SCIENCE_BASIS, README, and IDEAS an hour before the product computed its own — which differed (UK ratio 0.48 → 0.81) once unknown-year and under-construction farms were excluded | numbers entered the record from an exploratory query, not from the product's stored computation | all four documents corrected the same day, both figures kept with the reason they differ; rule 8 below |
 | 2026-09-08 | Playwright page tests could see each other's seeded runs and summaries — benign until a "no summary computed" test met the previous test's summary | Django's transactional flush covers Django-managed tables only; the ETL-owned raw tables were never emptied between tests (latent since the first page test) | `tests/web/conftest.py` empties every ETL-owned table before each transactional page test — rule 1 again: the boundary tests must own their own state |
+| 2026-09-10 | Rule 6, REPEATED: a follow-up commit (CLI progress flushing) was pushed to `feat/data-ops-cli` after its PR had been merged — no CI ran on it | worked for hours on a branch without re-checking its PR state; the merge happened while the follow-up was being written | cherry-picked onto a fresh branch with its own PR; the rule now reads: before ANY push, check the branch's PR state, not only after a merge you saw |
 
 ## Current scientific status — read this before citing any number
 
@@ -215,14 +216,17 @@ so far, each traceable to a row above:
    concern — deferring it shipped a broken first contact.
 5. **A visual guard must be seen failing** (2026-08-26, Blind spot C): every
    pixel test gets a RED demo before it counts as protection.
-6. **After any merge, verify PR state before pushing follow-ups**
-   (2026-08-27); post-merge fixes get a fresh branch and their own PR.
+6. **Before ANY push, verify the branch's PR state** (2026-08-27, tightened
+   2026-09-10 after a repeat): a merge can happen while a follow-up is being
+   written, so the check is per push, not per merge you happened to see.
+   Post-merge fixes get a fresh branch and their own PR.
 7. **Data-ops code is product code** (2026-09-10). Anything that downloads,
    verifies, or loads source data lives in the repo, under TDD, with
    checksum verification against the publisher's manifest built in. No
    scratchpad script for anything that runs longer than a minute or touches
-   the working database. The backfill driver is the first thing this rule
-   applies to (see the 2026-09-08/10 incident).
+   the working database. The backfill driver was the first thing this rule
+   applied to (see the 2026-09-08/10 incident): `python -m carbon_atlas`
+   (`carbon_atlas.dataops` + `carbon_atlas.cli`, 2026-09-10) replaced it.
 8. **Numbers enter the record only from the product's own stored
    computation** (2026-09-10). A spike's figures may appear in a spike note,
    labeled as such; an ADR, README, or SCIENCE_BASIS section quotes only what

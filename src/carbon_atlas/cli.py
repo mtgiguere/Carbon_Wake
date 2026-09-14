@@ -33,6 +33,13 @@ from carbon_atlas.etl import (
     run_zone_contrasts,
 )
 
+
+def _say(message: str) -> None:
+    """A progress line, flushed at once: a backfill runs for hours with stdout
+    redirected to a log, and block buffering would hide every line until exit."""
+    print(message, flush=True)
+
+
 DEFAULT_DSN = os.environ.get(
     "CARBON_ATLAS_DB_URL", "postgresql://carbon_atlas:carbon_atlas_dev@localhost:5434/carbon_atlas"
 )
@@ -110,7 +117,7 @@ def _loaded_years(conn: psycopg.Connection) -> dict[int, int]:
 def _load_year(conn: psycopg.Connection, args: argparse.Namespace, year: int) -> None:
     loaded = _loaded_years(conn)
     if year in loaded:
-        print(f"{year}: already loaded (run {loaded[year]})")
+        _say(f"{year}: already loaded (run {loaded[year]})")
         return
     zip_path = args.data_dir / fleet_daily_key(year)
     if not zip_path.is_file():
@@ -125,7 +132,7 @@ def _load_year(conn: psycopg.Connection, args: argparse.Namespace, year: int) ->
         effort_year=year,
     )
     conn.commit()
-    print(f"{year}: stored run {run_id}")
+    _say(f"{year}: stored run {run_id}")
 
 
 def _etl_year(args: argparse.Namespace) -> int:
@@ -150,7 +157,7 @@ def _fetch(args: argparse.Namespace, manifest: dict, year: int) -> None:
         raise ValueError(f"{key} is not in the Zenodo record")
     args.data_dir.mkdir(parents=True, exist_ok=True)
     outcome = fetch_verified(manifest[key], args.data_dir / key, opener=urlopen, sleep=time.sleep)
-    print(f"{year}: {outcome}")
+    _say(f"{year}: {outcome}")
 
 
 def _fetch_year(args: argparse.Namespace) -> int:
@@ -163,7 +170,7 @@ def _refresh_footprint(conn: psycopg.Connection, args: argparse.Namespace) -> No
         conn=conn, carbon_mean=args.carbon_mean, carbon_uncertainty=args.carbon_uncertainty
     )
     conn.commit()
-    print(f"footprint summary {summary_id} stored")
+    _say(f"footprint summary {summary_id} stored")
 
 
 def _footprint(args: argparse.Namespace) -> int:
@@ -182,14 +189,14 @@ def _zones(args: argparse.Namespace) -> int:
             region_margin_deg=args.region_margin,
         )
         conn.commit()
-    print(f"{count} reference zones stored from {args.geojson.name}")
+    _say(f"{count} reference zones stored from {args.geojson.name}")
     return 0
 
 
 def _measure_contrasts(conn: psycopg.Connection) -> None:
     measured = run_zone_contrasts(conn)
     conn.commit()
-    print(f"zone contrasts: measured {measured} run(s)")
+    _say(f"zone contrasts: measured {measured} run(s)")
 
 
 def _zone_contrasts(args: argparse.Namespace) -> int:
@@ -203,7 +210,7 @@ def _backfill(args: argparse.Namespace) -> int:
     with psycopg.connect(args.dsn) as conn:
         for year in range(args.first, args.last + 1):
             if year in _loaded_years(conn):
-                print(f"{year}: already loaded")
+                _say(f"{year}: already loaded")
                 continue
             _fetch(args, manifest, year)
             _load_year(conn, args, year)
@@ -218,5 +225,5 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         return args.func(args)
     except (FileNotFoundError, ValueError, ChecksumError) as exc:
-        print(f"error: {exc}", file=sys.stderr)
+        print(f"error: {exc}", file=sys.stderr, flush=True)
         return 2

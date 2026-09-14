@@ -235,3 +235,52 @@ def test_fetch_year_reads_the_zenodo_record_over_http_and_downloads_verified(
     rc = main(["fetch-year", "2021", "--data-dir", str(tmp_path / "gfw")])
     assert rc == 2
     assert "fleet-daily-csvs-100-v3-2021.zip is not in the Zenodo record" in capsys.readouterr().err
+
+
+def test_progress_lines_are_flushed_as_they_happen(tmp_path, monkeypatch):
+    """A backfill runs for hours with stdout redirected to a log; block
+    buffering would hide every progress line until exit (seen 2026-09-10 on
+    the first real run). Each line is flushed when printed."""
+    import hashlib
+    import io
+    import sys
+
+    payload = b"zip bytes" * 10
+    record = {
+        "files": [
+            {
+                "key": "fleet-daily-csvs-100-v3-2020.zip",
+                "size": len(payload),
+                "checksum": "md5:" + hashlib.md5(payload).hexdigest(),
+                "links": {"self": "https://zenodo.test/2020"},
+            }
+        ]
+    }
+    manifest = tmp_path / "record.json"
+    manifest.write_text(json.dumps(record), encoding="utf-8")
+    monkeypatch.setattr("carbon_atlas.cli.urlopen", lambda url, timeout=None: io.BytesIO(payload))
+
+    class Recorder(io.StringIO):
+        flushes = 0
+
+        def flush(self):
+            Recorder.flushes += 1
+            super().flush()
+
+    out = Recorder()
+    monkeypatch.setattr(sys, "stdout", out)
+
+    rc = main(
+        [
+            "fetch-year",
+            "2020",
+            "--data-dir",
+            str(tmp_path / "gfw"),
+            "--manifest-file",
+            str(manifest),
+        ]
+    )
+
+    assert rc == 0
+    assert "2020: downloaded" in out.getvalue()
+    assert Recorder.flushes >= 1
